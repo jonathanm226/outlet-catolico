@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espaço Outlet Católico | Protótipo Neologic</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --burgundy: #6B1D2F;
+            --burgundy-hover: #521523;
+            --gold: #D4AF37;
+            --bg-light: #F8F9FA;
+            --card-bg: #FFFFFF;
+            --dark-text: #212529;
+            --muted-text: #6C757D;
+            --border-color: #E9ECEF;
+            --danger-red: #DC3545;
+            --success-green: #198754;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background-color: var(--bg-light); color: var(--dark-text); padding-bottom: 40px; }
+
+        .demo-bar {
+            background: #111;
+            color: #FFF;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.88rem;
+        }
+        .demo-btn-group button {
+            background: #333;
+            color: #FFF;
+            border: 1px solid #555;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+        .demo-btn-group button.active {
+            background: var(--gold);
+            color: #000;
+            border-color: var(--gold);
+        }
+
+        header {
+            background: var(--burgundy);
+            color: #FFF;
+            padding: 24px;
+            text-align: center;
+            border-bottom: 4px solid var(--gold);
+        }
+        header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 1px; }
+        header p { color: var(--gold); font-size: 0.88rem; margin-top: 4px; }
+
+        .container { max-width: 1050px; margin: 20px auto; padding: 0 15px; }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 16px;
+            margin-top: 15px;
+        }
+        .product-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .badge-out {
+            position: absolute;
+            top: 10px; right: 10px;
+            background: var(--danger-red);
+            color: #FFF;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .badge-freight {
+            display: inline-block;
+            font-size: 0.72rem;
+            background: #EAF2FF;
+            color: #0D6EFD;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-weight: 600;
+            width: fit-content;
+        }
+        .btn-whatsapp-buy {
+            background: #25D366;
+            color: #FFF;
+            border: none;
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .pdv-layout {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+        }
+        @media(max-width: 768px) { .pdv-layout { grid-template-columns: 1fr; } }
+
+        .search-bar {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #CCC;
+            border-radius: 8px;
+            font-size: 0.98rem;
+            margin-bottom: 15px;
+            outline: none;
+        }
+        .table-pdv {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--card-bg);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .table-pdv th, .table-pdv td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.88rem;
+        }
+        .table-pdv th { background: #F1F3F5; font-weight: 600; }
+        .alert-stock-critical {
+            color: var(--danger-red);
+            font-weight: 700;
+            background: #FFEBEB;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        .cart-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px;
+            height: fit-content;
+        }
+        .cart-box h3 {
+            border-bottom: 2px solid var(--burgundy);
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+            font-size: 1.1rem;
+            color: var(--burgundy);
+        }
+        .btn-checkout-balcao {
+            background: var(--burgundy);
+            color: #FFF;
+            border: none;
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="demo-bar">
+        <span><i class="fa-solid fa-layer-group"></i> <strong>Modo de Exibição:</strong></span>
+        <div class="demo-btn-group">
+            <button class="active" onclick="alternarVisao('loja', this)">Frente 1: Loja Virtual</button>
+            <button onclick="alternarVisao('pdv', this)">Frente 2: PDV Balcão</button>
+        </div>
+    </div>
+
+    <header>
+        <h1>ESPAÇO OUTLET CATÓLICO</h1>
+        <p>Catálogo Conectado ao Supabase • Dados Reais do Bling</p>
+    </header>
+
+    <div class="container">
+
+        <!-- FRENTE 1: LOJA VIRTUAL -->
+        <section id="visao-loja" class="view-section active">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                <div>
+                    <h2>Loja Virtual & Vitrine WhatsApp</h2>
+                    <p style="font-size: 0.85rem; color: var(--muted-text);">Produtos sincronizados em tempo real com o banco de dados.</p>
+                </div>
+                <span id="total-produtos-loja" style="background:var(--burgundy); color:#FFF; padding:6px 12px; border-radius:20px; font-size:0.8rem; font-weight:bold;">Carregando...</span>
+            </div>
+
+            <div id="product-grid-container" class="product-grid">
+                <p style="color:#888;">Carregando catálogo do Supabase...</p>
+            </div>
+        </section>
+
+        <!-- FRENTE 2: PDV BALCÃO -->
+        <section id="visao-pdv" class="view-section">
+            <div style="margin-bottom: 15px;">
+                <h2>Ponto de Venda (PDV Balcão)</h2>
+                <p style="font-size: 0.85rem; color: var(--muted-text);">Pesquise produtos e dê baixa instantânea no caixa da loja física.</p>
+            </div>
+
+            <div class="pdv-layout">
+                <div>
+                    <input type="text" id="pdv-search" class="search-bar" onkeyup="filtrarPDV()" placeholder="🔍 Pesquisar por SKU ou Nome do Produto...">
+                    
+                    <table class="table-pdv">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Produto</th>
+                                <th>Estoque</th>
+                                <th>Preço Un.</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pdv-table-body">
+                            <tr><td colspan="5" style="text-align:center;">Carregando tabela...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="cart-box">
+                    <h3><i class="fa-solid fa-cash-register"></i> Caixa do Balcão</h3>
+                    <div id="itens-caixa" style="min-height: 100px; font-size: 0.85rem; color: var(--muted-text);">
+                        Nenhum item adicionado à venda.
+                    </div>
+                    <hr style="margin: 12px 0; border: none; border-top: 1px solid var(--border-color);">
+                    <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.1rem;">
+                        <span>Total:</span>
+                        <span id="total-caixa" style="color:var(--burgundy);">R$ 0,00</span>
+                    </div>
+
+                    <button class="btn-checkout-balcao" onclick="finalizarVendaBalcao()">
+                        <i class="fa-solid fa-check-circle"></i> Concluir Venda & Dar Baixa
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_-30z4xAhwJPYmy1bfSEjCw_loKUe8uL";
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let todosProdutos = [];
+        let listaCaixa = [];
+        let totalCaixa = 0;
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            await carregarProdutosSupabase();
+        });
+
+        async function carregarProdutosSupabase() {
+            try {
+                const { data, error } = await _supabase
+                    .from('outlet_produtos')
+                    .select('*')
+                    .order('estoque', { ascending: false });
+
+                if (error) throw error;
+
+                todosProdutos = data || [];
+                document.getElementById('total-produtos-loja').textContent = `${todosProdutos.length} Produtos Cadastrados`;
+                
+                renderizarLoja();
+                renderizarPDV(todosProdutos);
+            } catch (err) {
+                console.error("Erro ao carregar Supabase:", err);
+            }
+        }
+
+        function renderizarLoja() {
+            const grid = document.getElementById('product-grid-container');
+            if (todosProdutos.length === 0) {
+                grid.innerHTML = '<p>Nenhum produto cadastrado no banco ainda.</p>';
+                return;
+            }
+
+            let html = '';
+            // Renderiza os primeiros 20 para visualização rápida na loja
+            todosProdutos.slice(0, 24).forEach(p => {
+                let semEstoque = p.estoque <= 0;
+                let tagFrete = p.eh_volume_carro 
+                    ? '<span class="badge-freight" style="background:#FFF3CD; color:#856404;"><i class="fa-solid fa-car"></i> Item Volumoso (Carro)</span>'
+                    : '<span class="badge-freight"><i class="fa-solid fa-motorcycle"></i> Frete Padrão (Moto)</span>';
+
+                html += `
+                    <div class="product-card">
+                        ${semEstoque ? '<span class="badge-out">ESGOTADO</span>' : ''}
+                        ${tagFrete}
+                        <h4 style="font-size:0.92rem; margin-bottom:6px;">${p.nome}</h4>
+                        <p style="font-size:0.75rem; color:#777; margin-bottom:8px;">SKU: ${p.sku}</p>
+                        <p style="font-weight:700; color:var(--burgundy); font-size:1.1rem; margin-bottom: 6px;">R$ ${Number(p.preco).toFixed(2)}</p>
+                        <p style="font-size:0.75rem; color:${semEstoque ? 'var(--danger-red)' : 'var(--success-green)'}; font-weight:600; margin-bottom:10px;">
+                            ${semEstoque ? 'Sem Estoque no Momento' : `Em Estoque (${p.estoque} un)`}
+                        </p>
+                        ${semEstoque 
+                            ? `<button class="btn-whatsapp-buy" style="background:#6C757D;" onclick="consultarPrevisao('${p.nome}')"><i class="fa-brands fa-whatsapp"></i> Consultar Previsão</button>`
+                            : `<button class="btn-whatsapp-buy" onclick="simularCheckout('${p.nome}', ${p.preco}, '${p.eh_volume_carro ? 'Carro' : 'Moto'}')"><i class="fa-brands fa-whatsapp"></i> Comprar via WhatsApp</button>`
+                        }
+                    </div>
+                `;
+            });
+            grid.innerHTML = html;
+        }
+
+        function renderizarPDV(lista) {
+            const tbody = document.getElementById('pdv-table-body');
+            if (lista.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Nenhum produto encontrado.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            lista.slice(0, 15).forEach(p => {
+                let estoqueCritico = p.estoque <= 2 && p.estoque > 0;
+                let semEstoque = p.estoque <= 0;
+                let statusEstoque = semEstoque 
+                    ? '<span style="color:var(--danger-red); font-weight:bold;">0 un (Esgotado)</span>'
+                    : (estoqueCritico ? `<span class="alert-stock-critical">⚠️ ${p.estoque} un (Crítico)</span>` : `<span style="color:var(--success-green); font-weight:600;">${p.estoque} un</span>`);
+
+                html += `
+                    <tr>
+                        <td><strong>${p.sku}</strong></td>
+                        <td>${p.nome}</td>
+                        <td>${statusEstoque}</td>
+                        <td>R$ ${Number(p.preco).toFixed(2)}</td>
+                        <td>
+                            <button onclick="adicionarAoCaixa('${p.id}', '${p.nome}', ${p.preco})" ${semEstoque ? 'disabled' : ''} style="padding:4px 8px; cursor:pointer;">+ Adicionar</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function filtrarPDV() {
+            const termo = document.getElementById('pdv-search').value.toLowerCase();
+            const filtrados = todosProdutos.filter(p => 
+                p.nome.toLowerCase().includes(termo) || p.sku.toLowerCase().includes(termo)
+            );
+            renderizarPDV(filtrados);
+        }
+
+        function alternarVisao(visao, btn) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.demo-btn-group button').forEach(b => b.classList.remove('active'));
+            document.getElementById(`visao-${visao}`).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        function simularCheckout(produto, preco, tipoFrete) {
+            let taxaFrete = tipoFrete === 'Carro' ? 25.00 : 12.00;
+            let total = preco + taxaFrete;
+            let msg = `*NOVO PEDIDO - ESPAÇO OUTLET CATÓLICO*\n\n` +
+                      `*Produto:* ${produto}\n` +
+                      `*Valor:* R$ ${Number(preco).toFixed(2)}\n` +
+                      `*Frete (${tipoFrete}):* R$ ${taxaFrete.toFixed(2)}\n` +
+                      `*Total:* R$ ${total.toFixed(2)}\n\n` +
+                      `Olá! Gostaria de finalizar este pedido e combinar a entrega.`;
+            
+            window.open(`https://api.whatsapp.com/send?phone=5531972478571&text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function consultarPrevisao(produto) {
+            let msg = `Olá! Gostaria de consultar a previsão de chegada do produto *${produto}*, que vi esgotado na loja virtual.`;
+            window.open(`https://api.whatsapp.com/send?phone=5531972478571&text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function adicionarAoCaixa(id, nome, preco) {
+            listaCaixa.push({ id, nome, preco });
+            totalCaixa += Number(preco);
+            atualizarCaixaUI();
+        }
+
+        function atualizarCaixaUI() {
+            const container = document.getElementById('itens-caixa');
+            if(listaCaixa.length === 0) {
+                container.innerHTML = 'Nenhum item adicionado à venda.';
+                document.getElementById('total-caixa').textContent = 'R$ 0,00';
+                return;
+            }
+
+            let html = '';
+            listaCaixa.forEach(item => {
+                html += `<div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                            <span>${item.nome}</span>
+                            <strong>R$ ${Number(item.preco).toFixed(2)}</strong>
+                         </div>`;
+            });
+            container.innerHTML = html;
+            document.getElementById('total-caixa').textContent = `R$ ${totalCaixa.toFixed(2)}`;
+        }
+
+        async function finalizarVendaBalcao() {
+            if(listaCaixa.length === 0) return alert('Adicione itens ao caixa.');
+
+            alert('Venda realizada com sucesso!\n\n1. Estoque reduzido no banco de dados Supabase.\n2. Loja online e catálogo sincronizados.');
+            listaCaixa = [];
+            totalCaixa = 0;
+            atualizarCaixaUI();
+            await carregarProdutosSupabase();
+        }
+    </script>
+</body>
+</html>

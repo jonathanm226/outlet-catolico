@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espaço Outlet Católico</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+
+        :root {
+            --brand-burgundy: #7C1826;
+            --brand-gold: #C09A53;
+            --brand-text-dark: #333333;
+            --brand-text-brown: #8C6A3E;
+            --bg-light: #F8F9FA;
+            --card-bg: #FFFFFF;
+            --border-color: #E9ECEF;
+            --danger-red: #DC3545;
+            --success-green: #198754;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Montserrat', sans-serif; }
+        body { background-color: var(--bg-light); color: var(--brand-text-dark); display: flex; flex-direction: column; min-height: 100vh; }
+
+        header { background: var(--brand-burgundy); color: #FFF; padding: 15px 40px 0 40px; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; }
+        .header-icons { font-size: 1.3rem; color: var(--brand-gold); cursor: pointer; display: flex; gap: 20px; align-items: center; }
+        
+        .logo-container { text-align: center; color: var(--brand-gold); cursor: pointer; }
+        .logo-container i { font-size: 2rem; margin-bottom: 5px; }
+        .logo-container h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 2px; line-height: 1.2; text-transform: uppercase; }
+        
+        .cart-icon-wrapper { position: relative; cursor: pointer; }
+        .cart-badge { position: absolute; top: -8px; right: -10px; background: var(--brand-gold); color: #000; font-size: 0.7rem; font-weight: 700; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+        .category-bar { background: #60121D; display: flex; justify-content: center; overflow-x: auto; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .category-bar button { background: none; border: none; color: #FFF; padding: 16px 25px; font-size: 0.9rem; font-weight: 600; cursor: pointer; border-right: 1px solid rgba(255,255,255,0.1); transition: background 0.2s; font-family: 'Montserrat', sans-serif; }
+        .category-bar button:first-child { border-left: 1px solid rgba(255,255,255,0.1); }
+        .category-bar button:hover, .category-bar button.active { background: var(--brand-gold); color: #000; }
+
+        .sub-banner { background: #FFF; text-align: center; padding: 20px 15px; }
+        .sub-banner h2 { color: var(--brand-text-brown); font-size: 1.3rem; font-weight: 700; }
+
+        .marketing-section { background: linear-gradient(135deg, var(--brand-burgundy) 0%, #4a0e16 100%); color: #FFF; padding: 40px 20px; text-align: center; margin: 20px auto; max-width: 1200px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .marketing-section h3 { font-size: 1.8rem; color: var(--brand-gold); margin-bottom: 15px; }
+        .marketing-section p { font-size: 1.1rem; line-height: 1.6; max-width: 800px; margin: 0 auto; color: #EEE; }
+
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 15px; flex: 1; width: 100%; }
+        .view-section { display: none; animation: fadeIn 0.3s ease; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .store-filters { display: flex; gap: 15px; margin-bottom: 20px; background: #FFF; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); border: 1px solid var(--border-color); flex-wrap: wrap; }
+        .filter-input { flex: 1; min-width: 250px; padding: 10px 15px; border: 1px solid #CCC; border-radius: 8px; font-size: 0.95rem; outline: none; }
+        .filter-select { padding: 10px 15px; border: 1px solid #CCC; border-radius: 8px; font-size: 0.95rem; outline: none; background: #FFF; cursor: pointer; }
+
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 15px; }
+        .product-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; display: flex; flex-direction: column; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s; overflow: hidden; }
+        .product-card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.08); }
+        .product-img { width: 100%; height: 220px; object-fit: cover; background: #F1F3F5; border-bottom: 1px solid #EEE; }
+        .product-info { padding: 15px; display: flex; flex-direction: column; flex-grow: 1; justify-content: space-between; }
+        .badge-out { position: absolute; top: 10px; right: 10px; background: var(--danger-red); color: #FFF; font-size: 0.7rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; z-index: 2; }
+        
+        .btn-add-cart { background: var(--brand-burgundy); color: #FFF; border: none; width: 100%; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
+        .btn-add-cart:hover { background: #60121D; }
+
+        /* Modal do Carrinho / Conferência */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: #FFF; padding: 25px; border-radius: 12px; width: 100%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
+        
+        .cart-item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #EEE; font-size: 0.9rem; }
+        
+        .contato-box { background: #FFF; padding: 40px; border-radius: 12px; text-align: center; border: 1px solid var(--border-color); }
+        .contato-box h3 { color: var(--brand-burgundy); font-size: 1.8rem; margin-bottom: 15px; }
+        .contato-box p { font-size: 1.1rem; color: #555; margin-bottom: 10px; }
+
+        footer { background: #1A1A1A; color: #FFF; text-align: center; padding: 20px; font-size: 0.85rem; margin-top: 40px; }
+        footer span { color: var(--brand-gold); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-top">
+            <div class="header-icons"><i class="fa-solid fa-magnifying-glass"></i></div>
+            <div class="logo-container" onclick="navegar('inicio')">
+                <i class="fa-solid fa-rose"></i>
+                <h1>Espaço<br>Outlet Católico</h1>
+            </div>
+            <div class="header-icons">
+                <div class="cart-icon-wrapper" onclick="abrirCarrinho()">
+                    <i class="fa-solid fa-bag-shopping" style="font-size: 1.5rem; color: var(--brand-gold);"></i>
+                    <span id="cart-counter" class="cart-badge">0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <div class="category-bar">
+        <button class="cat-btn active" onclick="filtrarPorCategoria('', this)">Ver todas as categorias</button>
+        <button class="cat-btn" onclick="filtrarPorCategoria('livro', this)">Livros</button>
+        <button class="cat-btn" onclick="filtrarPorCategoria('imagem', this)">Imagens</button>
+        <button class="cat-btn" onclick="filtrarPorCategoria('terço', this)">Terços</button>
+        <button class="cat-btn" onclick="filtrarPorCategoria('infantil', this)">Infantil</button>
+        <button class="cat-btn" onclick="filtrarPorCategoria('santuário', this)">Santuário</button>
+        <button class="cat-btn" style="color: var(--brand-gold);" onclick="filtrarVitrine('estoque')"><i class="fa-solid fa-tag"></i> Apenas em Estoque</button>
+    </div>
+
+    <div class="sub-banner">
+        <h2>Mais que artigos religiosos, sementes de evangelização!</h2>
+    </div>
+
+    <div class="container">
+        <section id="sec-inicio" class="view-section active">
+            <div class="marketing-section">
+                <h3>Artigos que inspiram a Fé</h3>
+                <p>Encontre os melhores produtos católicos para vivenciar e propagar a sua fé diariamente. Peças selecionadas com carinho para abençoar o seu lar, presentear quem você ama e fortalecer a sua caminhada espiritual.</p>
+            </div>
+
+            <div class="store-filters">
+                <input type="text" id="filtro-nome-loja" class="filter-input" placeholder="🔍 Pesquisar produtos..." onkeyup="filtrarVitrine()">
+                <select id="filtro-ordem-loja" class="filter-select" onchange="filtrarVitrine()">
+                    <option value="relevancia">Ordem de Relevância</option>
+                    <option value="menor-preco">Menor Preço</option>
+                    <option value="maior-preco">Maior Preço</option>
+                    <option value="estoque">Apenas em Estoque</option>
+                </select>
+            </div>
+            
+            <div id="resultado-count" style="margin-bottom: 10px; font-size: 0.9rem; color: #666;">Carregando produtos...</div>
+            <div id="product-grid" class="product-grid"></div>
+        </section>
+
+        <section id="sec-contato" class="view-section">
+            <div class="contato-box">
+                <i class="fa-brands fa-whatsapp" style="font-size: 4rem; color: #25D366; margin-bottom: 20px;"></i>
+                <h3>Fale Conosco</h3>
+                <p><strong>Telefone / WhatsApp:</strong> (31) 97247-8571</p>
+                <p><strong>Endereço:</strong> Av. Coletora Artur Trindade, 1830 - Alterosas, Betim/MG</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- MODAL DE CONFERÊNCIA DO CARRINHO -->
+    <div class="modal-overlay" id="modal-carrinho">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #EEE; padding-bottom:10px; margin-bottom:15px;">
+                <h3 style="color:var(--brand-burgundy);"><i class="fa-solid fa-basket-shopping"></i> Conferência do Carrinho</h3>
+                <button onclick="fecharCarrinho()" style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:#999;">&times;</button>
+            </div>
+            
+            <div id="carrinho-itens-lista" style="max-height: 250px; overflow-y:auto; margin-bottom:15px;">
+                <!-- Itens injetados via JS -->
+            </div>
+
+            <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.2rem; border-top: 2px solid #EEE; padding-top:15px; margin-bottom:20px;">
+                <span>Total do Pedido:</span>
+                <span id="carrinho-total-geral" style="color:var(--brand-burgundy);">R$ 0,00</span>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <button onclick="fecharCarrinho()" style="flex:1; background:#EEE; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer;">Continuar Comprando</button>
+                <button onclick="finalizarCompraWhatsApp()" style="flex:1; background:#25D366; color:#FFF; border:none; padding:12px; border-radius:8px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="fa-brands fa-whatsapp"></i> Finalizar no WhatsApp
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2026 Espaço Outlet Católico. Todos os direitos reservados.<br>
+        Desenvolvido por <span>Neologic Tech Systems</span>
+    </footer>
+
+    <script>
+        const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_-30z4xAhwJPYmy1bfSEjCw_loKUe8uL";
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let todosProdutos = [];
+        let carrinho = [];
+        let categoriaAtual = '';
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            await carregarProdutos();
+        });
+
+        function navegar(secao) {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            if(secao === 'inicio') document.getElementById('sec-inicio').classList.add('active');
+            else document.getElementById('sec-contato').classList.add('active');
+        }
+
+        async function carregarProdutos() {
+            try {
+                const { data, error } = await _supabase.from('outlet_produtos').select('*');
+                if (error) throw error;
+                todosProdutos = data || [];
+                filtrarVitrine();
+            } catch (err) {
+                console.error("Erro ao carregar:", err);
+            }
+        }
+
+        function filtrarPorCategoria(cat, btn) {
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+            if(btn) btn.classList.add('active');
+            categoriaAtual = cat.toLowerCase();
+            navegar('inicio');
+            filtrarVitrine();
+        }
+
+        function filtrarVitrine(forcarOrdem = null) {
+            const termo = document.getElementById('filtro-nome-loja').value.toLowerCase();
+            let ordem = forcarOrdem || document.getElementById('filtro-ordem-loja').value;
+            if(forcarOrdem) document.getElementById('filtro-ordem-loja').value = forcarOrdem;
+            
+            let filtrados = todosProdutos.filter(p => (p.nome || '').toLowerCase().includes(termo));
+            if(categoriaAtual !== '') filtrados = filtrados.filter(p => (p.nome || '').toLowerCase().includes(categoriaAtual));
+
+            if (ordem === 'estoque') filtrados = filtrados.filter(p => (p.estoque || 0) > 0);
+            else if (ordem === 'menor-preco') filtrados.sort((a, b) => (a.preco || 0) - (b.preco || 0));
+            else if (ordem === 'maior-preco') filtrados.sort((a, b) => (b.preco || 0) - (a.preco || 0));
+
+            document.getElementById('resultado-count').textContent = `Exibindo ${filtrados.length} produtos`;
+            const grid = document.getElementById('product-grid');
+            
+            if(filtrados.length === 0) {
+                grid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; padding: 40px; color:#888;">Nenhum produto encontrado.</p>';
+                return;
+            }
+
+            grid.innerHTML = filtrados.map(p => {
+                let semEstoque = (p.estoque || 0) <= 0;
+                let precoStr = Number(p.preco || 0).toFixed(2).replace('.', ',');
+                let imagem = p.imagem_url ? p.imagem_url : 'https://via.placeholder.com/400x400.png?text=Foto+Indisponível';
+                
+                return `
+                    <div class="product-card">
+                        ${semEstoque ? '<span class="badge-out">ESGOTADO</span>' : ''}
+                        <img src="${imagem}" alt="${p.nome}" class="product-img">
+                        <div class="product-info">
+                            <div>
+                                <p style="font-size:0.75rem; color:#999; margin-bottom:4px;">SKU: ${p.sku || '-'}</p>
+                                <h4 style="font-size:0.95rem; margin-bottom:10px;">${p.nome || 'Produto'}</h4>
+                            </div>
+                            <div>
+                                <p style="font-weight:700; color:var(--brand-burgundy); font-size:1.3rem; margin-bottom: 4px;">R$ ${precoStr}</p>
+                                <p style="font-size:0.75rem; color:${semEstoque ? 'var(--danger-red)' : 'var(--success-green)'}; font-weight:600;">
+                                    ${semEstoque ? 'Sem Estoque' : `Disponível: ${p.estoque || 0} un`}
+                                </p>
+                                ${semEstoque 
+                                    ? `<button class="btn-add-cart" style="background:#6C757D;" disabled>Esgotado</button>`
+                                    : `<button class="btn-add-cart" onclick="adicionarAoCarrinho('${p.id}')"><i class="fa-solid fa-cart-plus"></i> Adicionar ao Carrinho</button>`
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function adicionarAoCarrinho(id) {
+            let produto = todosProdutos.find(p => p.id == id);
+            if(!produto) return;
+
+            let itemExistente = carrinho.find(i => i.id == id);
+            if(itemExistente) {
+                if(itemExistente.qtd < produto.estoque) {
+                    itemExistente.qtd++;
+                } else {
+                    alert('Quantidade máxima disponível em estoque atingida.');
+                    return;
+                }
+            } else {
+                carrinho.push({ id: produto.id, nome: produto.nome, preco: Number(produto.preco), qtd: 1 });
+            }
+
+            atualizarContadorCarrinho();
+            abrirCarrinho();
+        }
+
+        function atualizarContadorCarrinho() {
+            let totalQtd = carrinho.reduce((acc, item) => acc + item.qtd, 0);
+            document.getElementById('cart-counter').textContent = totalQtd;
+        }
+
+        function abrirCarrinho() {
+            let listaEl = document.getElementById('carrinho-itens-lista');
+            if(carrinho.length === 0) {
+                listaEl.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">O seu carrinho está vazio.</p>';
+                document.getElementById('carrinho-total-geral').textContent = 'R$ 0,00';
+                document.getElementById('modal-carrinho').classList.add('active');
+                return;
+            }
+
+            let totalGeral = 0;
+            listaEl.innerHTML = carrinho.map(item => {
+                let subtotal = item.preco * item.qtd;
+                totalGeral += subtotal;
+                return `
+                    <div class="cart-item-row">
+                        <div>
+                            <strong>${item.nome}</strong><br>
+                            <span style="font-size:0.8rem; color:#666;">R$ ${item.preco.toFixed(2).replace('.',',')} un</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span>Qtd: <strong>${item.qtd}</strong></span>
+                            <span style="font-weight:bold; color:var(--brand-burgundy);">R$ ${subtotal.toFixed(2).replace('.',',')}</span>
+                            <button onclick="removerItemCarrinho('${item.id}')" style="background:none; border:none; color:red; cursor:pointer;"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('carrinho-total-geral').textContent = `R$ ${totalGeral.toFixed(2).replace('.',',')}`;
+            document.getElementById('modal-carrinho').classList.add('active');
+        }
+
+        function fecharCarrinho() {
+            document.getElementById('modal-carrinho').classList.remove('active');
+        }
+
+        function removerItemCarrinho(id) {
+            carrinho = carrinho.filter(i => i.id != id);
+            atualizarContadorCarrinho();
+            abrirCarrinho();
+        }
+
+        async function finalizarCompraWhatsApp() {
+            if(carrinho.length === 0) return;
+
+            let totalGeral = carrinho.reduce((acc, item) => acc + (item.preco * item.qtd), 0);
+
+            try {
+                const { error } = await _supabase.from('outlet_vendas').insert([{
+                    cliente_nome: 'Cliente Web (WhatsApp)',
+                    itens: JSON.stringify(carrinho),
+                    total: totalGeral,
+                    status: 'Pendente de Validação',
+                    forma_pagamento: 'A definir'
+                }]);
+
+                if (error) throw error;
+
+                let mensagem = `*NOVO PEDIDO - ESPAÇO OUTLET CATÓLICO*\n\nOlá, gostaria de finalizar o seguinte pedido:\n\n`;
+                carrinho.forEach(item => {
+                    mensagem += `▪ ${item.qtd}x ${item.nome} - R$ ${(item.preco * item.qtd).toFixed(2).replace('.',',')}\n`;
+                });
+                mensagem += `\n*Total Geral: R$ ${totalGeral.toFixed(2).replace('.',',')}*`;
+
+                carrinho = [];
+                atualizarContadorCarrinho();
+                fecharCarrinho();
+
+                window.open(`https://api.whatsapp.com/send?phone=5531972478571&text=${encodeURIComponent(mensagem)}`, '_blank');
+
+            } catch (err) {
+                console.error("Erro ao registrar pedido:", err.message);
+                alert("Houve um erro ao registrar sua compra. Verifique se executou o script SQL da tabela outlet_vendas no Supabase.");
+            }
+        }
+    </script>
+</body>
+</html>

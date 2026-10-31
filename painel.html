@@ -62,11 +62,22 @@
         .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #555; }
         .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #CCC; border-radius: 6px; font-family: 'Montserrat'; }
 
+        /* TOAST NOTIFICATION CSS */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .toast { background: #FFF; color: #333; padding: 15px 20px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 12px; font-size: 0.9rem; font-weight: 600; min-width: 280px; max-width: 400px; pointer-events: auto; animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.7s forwards; border-left: 5px solid var(--brand-burgundy); }
+        .toast.success { border-left-color: var(--success-green); }
+        .toast.error { border-left-color: var(--danger-red); }
+        .toast.warning { border-left-color: var(--brand-gold); }
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateY(-10px); } }
+
         footer { background: #1A1A1A; color: #FFF; text-align: center; padding: 15px; font-size: 0.8rem; margin-top: auto; }
         footer span { color: var(--brand-gold); font-weight: bold; }
     </style>
 </head>
 <body>
+
+    <div id="toast-container"></div>
 
     <div class="painel-header">
         <h1><i class="fa-solid fa-gear"></i> Painel de Gestão e PDV</h1>
@@ -80,6 +91,7 @@
                 <li class="menu-item active" onclick="trocarAba('pdv', this)"><i class="fa-solid fa-cash-register"></i> PDV (Caixa)</li>
                 <li class="menu-item" onclick="trocarAba('estoque', this)"><i class="fa-solid fa-boxes-stacked"></i> Gestão de Estoque</li>
                 <li class="menu-item" onclick="trocarAba('vendas', this)"><i class="fa-solid fa-chart-line"></i> Relatório de Vendas</li>
+                <li class="menu-item" onclick="trocarAba('fornecedores', this)"><i class="fa-solid fa-truck-field"></i> Gestão de Fornecedores & Custos</li>
             </ul>
         </aside>
 
@@ -158,6 +170,39 @@
                 </table>
             </section>
 
+            <!-- ABA 4: GESTÃO DE FORNECEDORES E CUSTOS -->
+            <section id="aba-fornecedores" class="tab-section">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #EEE; padding-bottom: 10px; margin-bottom: 15px;">
+                    <h2 style="color: var(--brand-burgundy);">Gestão de Fornecedores e Custos Operacionais</h2>
+                    <button class="btn-primary" onclick="abrirModalCusto()"><i class="fa-solid fa-plus"></i> Registrar Custo / Despesa</button>
+                </div>
+
+                <div style="display:flex; gap:15px; margin-bottom:20px; align-items:center; flex-wrap:wrap;">
+                    <div>
+                        <label style="font-size:0.8rem; font-weight:bold; display:block; margin-bottom:5px;">Filtrar por Mês:</label>
+                        <input type="month" id="filtro-mes-custos" class="filter-input" style="margin:0; padding:8px;" onchange="carregarCustosDespesas()">
+                    </div>
+                    <div style="margin-left:auto; text-align:right;">
+                        <span style="font-size:0.85rem; color:#666;">Total de Custos do Mês:</span>
+                        <div id="total-custos-mes" style="font-size:1.4rem; font-weight:bold; color:var(--danger-red);">R$ 0,00</div>
+                    </div>
+                </div>
+
+                <table class="table-erp">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Fornecedor / Despesa</th>
+                            <th>Mês/Ano</th>
+                            <th>Valor</th>
+                            <th>Observação</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="erp-custos-body"></tbody>
+                </table>
+            </section>
+
         </main>
     </div>
 
@@ -186,8 +231,8 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="form-sku">Código SKU</label>
-                    <input type="text" id="form-sku">
+                    <label for="form-sku">Código SKU / Fornecedor</label>
+                    <input type="text" id="form-sku" placeholder="Ex: Fornecedor ABC ou SKU">
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
@@ -204,6 +249,49 @@
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
                     <button type="button" class="btn-secundary" onclick="fecharModalProduto()">Cancelar</button>
                     <button type="submit" class="btn-primary">Salvar no Banco</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE CADASTRO DE CUSTOS E FORNECEDORES (COM INPUT MANUAL) -->
+    <div class="modal-overlay" id="modal-custo">
+        <div class="modal-content">
+            <h3 style="color: var(--brand-burgundy); margin-bottom: 15px; border-bottom: 2px solid #EEE; padding-bottom:10px;">Lançar Custo ou Despesa</h3>
+            <form id="form-custo" onsubmit="salvarCustoDespesa(event)">
+                
+                <div class="form-group">
+                    <label>Tipo de Custo:</label>
+                    <select id="custo-tipo" class="filter-input" style="margin:0; padding:10px;" onchange="atualizarLabelTipoCusto()">
+                        <option value="fornecedor">Fornecedor</option>
+                        <option value="operacional">Despesa Operacional (Água, Luz, etc.)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label id="label-nome-referencia">Nome do Fornecedor:</label>
+                    <input type="text" id="custo-nome-manual" required placeholder="Ex: Fornecedor João ou Conta de Luz">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>Mês de Referência:</label>
+                        <input type="month" id="custo-mes" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor (R$):</label>
+                        <input type="number" step="0.01" id="custo-valor" required placeholder="0.00">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Observação / Detalhes:</label>
+                    <input type="text" id="custo-obs" placeholder="Ex: Parcela 2/10 ou nota fiscal X">
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                    <button type="button" class="btn-secundary" onclick="fecharModalCusto()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Lançamento</button>
                 </div>
             </form>
         </div>
@@ -235,7 +323,6 @@
         </div>
     </div>
 
-    <!-- INPUT OCULTO PARA ABRIR A CÂMERA -->
     <input type="file" id="input-camera" accept="image/*" capture="environment" style="display:none;" onchange="converterArquivoParaBase64(this)">
 
     <footer>
@@ -253,9 +340,29 @@
         let totalCaixa = 0;
 
         document.addEventListener("DOMContentLoaded", function() {
+            const dataAtual = new Date().toISOString().slice(0, 7);
+            const filtroMes = document.getElementById('filtro-mes-custos');
+            const inputMesCusto = document.getElementById('custo-mes');
+            if(filtroMes) filtroMes.value = dataAtual;
+            if(inputMesCusto) inputMesCusto.value = dataAtual;
+
             carregarBanco();
             carregarVendas();
+            carregarCustosDespesas();
         });
+
+        function mostrarMensagem(texto, tipo = 'success') {
+            const container = document.getElementById('toast-container');
+            let icon = '<i class="fa-solid fa-circle-check" style="color:var(--success-green); font-size:1.2rem;"></i>';
+            if(tipo === 'error') icon = '<i class="fa-solid fa-circle-xmark" style="color:var(--danger-red); font-size:1.2rem;"></i>';
+            if(tipo === 'warning') icon = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--brand-gold); font-size:1.2rem;"></i>';
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${tipo}`;
+            toast.innerHTML = `${icon} <span style="flex:1;">${texto}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
 
         function trocarAba(aba, btn) {
             var secoes = document.querySelectorAll('.tab-section');
@@ -393,9 +500,9 @@
                 }
                 fecharModalProduto();
                 await carregarBanco();
-                alert('Produto salvo com sucesso!');
+                mostrarMensagem('Produto salvo com sucesso!');
             } catch(err) {
-                alert('Erro ao salvar no banco: ' + err.message);
+                mostrarMensagem('Erro ao salvar no banco: ' + err.message, 'error');
             }
         }
 
@@ -412,7 +519,7 @@
                 '<td style="font-weight:600;">' + p.nome + '</td>' +
                 '<td>' + (p.estoque || 0) + ' un</td>' +
                 '<td style="color:var(--brand-burgundy); font-weight:bold;">R$ ' + Number(p.preco||0).toFixed(2).replace('.',',') + '</td>' +
-                '<td><button class="btn-secundary" onclick="addCaixa(\'' + p.id + '\', \'' + nomeTratado + '\', ' + p.preco + ', ' + p.estoque + ')" ' + (semEstoque ? 'disabled style="opacity:0.5;"' : '') + '>+ Caixa</button></td>' +
+                '<td><button class="btn-secundary" onclick="addCaixa(\'' + p.id + '\', \'' + nomeTratado + '\', ' + p.preco + ')" ' + (semEstoque ? 'disabled style="opacity:0.5;"' : '') + '>+ Caixa</button></td>' +
                 '</tr>';
             }
             tbody.innerHTML = html;
@@ -431,8 +538,8 @@
             renderizarPDV(filtrados);
         }
 
-        function addCaixa(id, nome, preco, estoqueAtual) {
-            listaCaixa.push({ id: id, nome: nome, preco: Number(preco), estoqueAtual: estoqueAtual });
+        function addCaixa(id, nome, preco) {
+            listaCaixa.push({ id: id, nome: nome, preco: Number(preco) });
             totalCaixa += Number(preco);
             document.getElementById('total-caixa').textContent = 'R$ ' + totalCaixa.toFixed(2).replace('.',',');
             
@@ -447,7 +554,10 @@
         }
 
         async function finalizarVendaPDV() {
-            if(listaCaixa.length === 0) return alert('Caixa vazio.');
+            if(listaCaixa.length === 0) {
+                mostrarMensagem('O caixa está vazio.', 'warning');
+                return;
+            }
             
             var formaPgto = document.getElementById('forma-pagamento').value;
 
@@ -478,7 +588,7 @@
                     forma_pagamento: formaPgto
                 }]);
 
-                alert('Venda PDV realizada com sucesso e estoque atualizado!');
+                mostrarMensagem('Venda PDV realizada com sucesso e estoque atualizado!');
                 listaCaixa = [];
                 totalCaixa = 0;
                 document.getElementById('itens-caixa').innerHTML = 'Caixa livre.';
@@ -487,7 +597,7 @@
                 await carregarVendas();
 
             } catch (err) {
-                alert('Erro ao finalizar venda: ' + err.message);
+                mostrarMensagem('Erro ao finalizar venda: ' + err.message, 'error');
             }
         }
 
@@ -618,10 +728,10 @@
                 fecharModalValidar();
                 await carregarBanco();
                 await carregarVendas();
-                alert('Venda confirmada com sucesso e estoque atualizado!');
+                mostrarMensagem('Venda confirmada com sucesso e estoque atualizado!');
 
             } catch (err) {
-                alert('Erro ao confirmar venda: ' + err.message);
+                mostrarMensagem('Erro ao confirmar venda: ' + err.message, 'error');
             }
         }
 
@@ -635,8 +745,122 @@
 
                 if(res.error) throw res.error;
                 await carregarVendas();
+                mostrarMensagem('Status atualizado com sucesso.');
             } catch (err) {
-                alert('Erro ao alterar status: ' + err.message);
+                mostrarMensagem('Erro ao alterar status: ' + err.message, 'error');
+            }
+        }
+
+        // FUNÇÕES DE GESTÃO DE FORNECEDORES E CUSTOS (COM INPUT MANUAL)
+        function atualizarLabelTipoCusto() {
+            const tipo = document.getElementById('custo-tipo').value;
+            const label = document.getElementById('label-nome-referencia');
+            const input = document.getElementById('custo-nome-manual');
+            
+            if(tipo === 'fornecedor') {
+                label.textContent = 'Nome do Fornecedor:';
+                input.placeholder = 'Ex: Fornecedor João / Empresa ABC';
+            } else {
+                label.textContent = 'Nome da Despesa:';
+                input.placeholder = 'Ex: Água, Luz, Internet, Aluguel';
+            }
+        }
+
+        function abrirModalCusto() {
+            document.getElementById('form-custo').reset();
+            const dataAtual = new Date().toISOString().slice(0, 7);
+            document.getElementById('custo-mes').value = dataAtual;
+            atualizarLabelTipoCusto();
+            document.getElementById('modal-custo').classList.add('active');
+        }
+
+        function fecharModalCusto() {
+            document.getElementById('modal-custo').classList.remove('active');
+        }
+
+        async function salvarCustoDespesa(e) {
+            e.preventDefault();
+            const tipo = document.getElementById('custo-tipo').value;
+            const nomeRef = document.getElementById('custo-nome-manual').value;
+            const mesAno = document.getElementById('custo-mes').value;
+            const valor = parseFloat(document.getElementById('custo-valor').value);
+            const obs = document.getElementById('custo-obs').value;
+
+            try {
+                const { error } = await _supabase.from('outlet_custos_despesas').insert([{
+                    tipo: tipo,
+                    nome_referencia: nomeRef,
+                    valor: valor,
+                    mes_ano: mesAno,
+                    observacao: obs
+                }]);
+
+                if(error) throw error;
+
+                fecharModalCusto();
+                carregarCustosDespesas();
+                mostrarMensagem('Custo lançado com sucesso!');
+            } catch(err) {
+                mostrarMensagem('Erro ao salvar custo: ' + err.message, 'error');
+            }
+        }
+
+        async function carregarCustosDespesas() {
+            const mesFiltro = document.getElementById('filtro-mes-custos').value;
+            try {
+                let query = _supabase.from('outlet_custos_despesas').select('*');
+                if(mesFiltro) {
+                    query = query.eq('mes_ano', mesFiltro);
+                }
+
+                const { data, error } = await query.order('created_at', { ascending: false });
+                if(error) throw error;
+
+                const tbody = document.getElementById('erp-custos-body');
+                if(!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Nenhum custo registrado para este período.</td></tr>';
+                    document.getElementById('total-custos-mes').textContent = 'R$ 0,00';
+                    return;
+                }
+
+                let html = '';
+                let totalGeral = 0;
+
+                data.forEach(item => {
+                    totalGeral += Number(item.valor || 0);
+                    const badgeTipo = item.tipo === 'fornecedor' 
+                        ? '<span class="badge-status status-confirmado">Fornecedor</span>' 
+                        : '<span class="badge-status status-pendente">Operacional</span>';
+
+                    html += `
+                        <tr>
+                            <td>${badgeTipo}</td>
+                            <td style="font-weight:600;">${item.nome_referencia}</td>
+                            <td>${item.mes_ano}</td>
+                            <td style="color:var(--danger-red); font-weight:bold;">R$ ${Number(item.valor).toFixed(2).replace('.',',')}</td>
+                            <td style="font-size:0.85rem; color:#666;">${item.observacao || '-'}</td>
+                            <td><button class="btn-danger" onclick="excluirCusto(${item.id})"><i class="fa-solid fa-trash"></i> Excluir</button></td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+                document.getElementById('total-custos-mes').textContent = `R$ ${totalGeral.toFixed(2).replace('.',',')}`;
+
+            } catch(err) {
+                console.error("Erro ao carregar custos:", err);
+            }
+        }
+
+        async function excluirCusto(id) {
+            if(!confirm('Deseja realmente excluir este lançamento?')) return;
+            try {
+                const { error } = await _supabase.from('outlet_custos_despesas').delete().eq('id', id);
+                if(error) throw error;
+                carregarCustosDespesas();
+                mostrarMensagem('Lançamento excluído com sucesso.');
+            } catch(err) {
+                mostrarMensagem('Erro ao excluir: ' + err.message, 'error');
             }
         }
     </script>

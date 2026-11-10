@@ -152,7 +152,6 @@
                     <button class="btn-primary" onclick="abrirModalProduto()"><i class="fa-solid fa-plus"></i> Novo Produto</button>
                 </div>
 
-                <!-- GRÁFICOS DE ESTOQUE MELHORADOS -->
                 <div class="charts-container">
                     <div class="chart-card">
                         <h4>Produtos com Estoque Crítico (≤ 3 un)</h4>
@@ -178,7 +177,6 @@
                     <button class="btn-primary" onclick="carregarVendas()"><i class="fa-solid fa-rotate"></i> Atualizar Lista</button>
                 </div>
 
-                <!-- GRÁFICOS DE VENDAS -->
                 <div class="charts-container">
                     <div class="chart-card">
                         <h4>Vendas por Forma de Pagamento</h4>
@@ -206,14 +204,13 @@
                 </table>
             </section>
 
-            <!-- ABA 4: GESTÃO DE FORNECEDORES E CUSTOS (COM RESUMO POR ANO E FILTRAGEM INTERATIVA) -->
+            <!-- ABA 4: GESTÃO DE FORNECEDORES E CUSTOS -->
             <section id="aba-fornecedores" class="tab-section">
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #EEE; padding-bottom: 10px; margin-bottom: 15px;">
                     <h2 style="color: var(--brand-burgundy);">Gestão de Fornecedores e Custos Operacionais</h2>
                     <button class="btn-primary" onclick="abrirModalCusto()"><i class="fa-solid fa-plus"></i> Registrar Custo / Despesa</button>
                 </div>
 
-                <!-- GRÁFICO DE CUSTOS POR ANO (PRINT 1) -->
                 <div class="charts-container" style="grid-template-columns: 1fr; margin-bottom: 20px;">
                     <div class="chart-card" style="height: 260px;">
                         <h4>Evolução de Custos por Ano</h4>
@@ -221,7 +218,6 @@
                     </div>
                 </div>
 
-                <!-- CARDS RESUMO / FILTROS INTERATIVOS POR TIPO DE CUSTO (PRINT 2) -->
                 <div style="margin-bottom: 10px; font-size: 0.85rem; font-weight: 600; color: #555;">
                     Clique em um tipo abaixo para filtrar os lançamentos instantaneamente:
                 </div>
@@ -655,23 +651,21 @@
             }
         }
 
+        // USING TEMPLATE LITERALS FOR CLEAN, ERROR-FREE RENDERING
         function renderizarEstoque(lista) {
-            var tbody = document.getElementById('erp-table-body');
+            const tbody = document.getElementById('erp-table-body');
             if(!tbody) return;
-            var html = "";
-            for(var i = 0; i < lista.length; i++) {
-                var p = lista[i];
-                var img = p.imagem_url ? p.imagem_url : 'https://via.placeholder.com/45';
-                html += '<tr>' +
-                '<td><img src="' + img + '" onerror="this.src='https://via.placeholder.com/45'"></td>' +
-                '<td style="font-size:0.8rem; color:#666;">' + (p.sku || '-') + '</td>' +
-                '<td style="font-weight:600;">' + p.nome + '</td>' +
-                '<td>R$ ' + Number(p.preco||0).toFixed(2).replace('.',',') + '</td>' +
-                '<td><strong>' + (p.estoque || 0) + ' un</strong></td>' +
-                '<td><button class="btn-secundary" onclick="abrirModalProduto('' + p.id + '')"><i class="fa-solid fa-pen"></i> Editar</button></td>' +
-                '</tr>';
-            }
-            tbody.innerHTML = html;
+            
+            tbody.innerHTML = lista.map(p => `
+                <tr>
+                    <td><img src="${p.imagem_url || 'https://via.placeholder.com/45'}" onerror="this.src='https://via.placeholder.com/45'"></td>
+                    <td style="font-size:0.8rem; color:#666;">${p.sku || '-'}</td>
+                    <td style="font-weight:600;">${p.nome}</td>
+                    <td>R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')}</td>
+                    <td><strong>${p.estoque || 0} un</strong></td>
+                    <td><button class="btn-secundary" onclick="abrirModalProduto('${p.id}')"><i class="fa-solid fa-pen"></i> Editar</button></td>
+                </tr>
+            `).join('');
         }
 
         function filtrarEstoque() {
@@ -686,7 +680,7 @@
             form.reset();
             if (id) {
                 document.getElementById('modal-title').textContent = 'Editar Produto';
-                var p = todosProdutos.find(item => item.id == id);
+                var p = todosProdutos.find(item => String(item.id) === String(id));
                 if (p) {
                     document.getElementById('form-id').value = p.id;
                     document.getElementById('form-imagem-base64').value = p.imagem_url || '';
@@ -734,22 +728,22 @@
         }
 
         function renderizarPDV(lista) {
-            var tbody = document.getElementById('pdv-table-body');
+            const tbody = document.getElementById('pdv-table-body');
             if(!tbody) return;
-            var html = "";
-            for(var i = 0; i < lista.length; i++) {
-                var p = lista[i];
-                var semEstoque = (p.estoque || 0) <= 0;
-                var nomeTratado = (p.nome || '').replace(/'/g, "\'");
-                html += '<tr>' +
-                '<td style="font-size:0.8rem; color:#666;">' + (p.sku || '-') + '</td>' +
-                '<td style="font-weight:600;">' + p.nome + '</td>' +
-                '<td>' + (p.estoque || 0) + ' un</td>' +
-                '<td style="color:var(--brand-burgundy); font-weight:bold;">R$ ' + Number(p.preco||0).toFixed(2).replace('.',',') + '</td>' +
-                '<td><button class="btn-secundary" onclick="addCaixa('' + p.id + '', '' + nomeTratado + '', ' + p.preco + ')" ' + (semEstoque ? 'disabled style="opacity:0.5;"' : '') + '>+ Caixa</button></td>' +
-                '</tr>';
-            }
-            tbody.innerHTML = html;
+
+            tbody.innerHTML = lista.map(p => {
+                const semEstoque = (p.estoque || 0) <= 0;
+                const nomeSeguro = (p.nome || '').replace(/'/g, "\'");
+                return `
+                    <tr>
+                        <td style="font-size:0.8rem; color:#666;">${p.sku || '-'}</td>
+                        <td style="font-weight:600;">${p.nome}</td>
+                        <td>${p.estoque || 0} un</td>
+                        <td style="color:var(--brand-burgundy); font-weight:bold;">R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')}</td>
+                        <td><button class="btn-secundary" onclick="addCaixa('${p.id}', '${nomeSeguro}', ${p.preco || 0})" ${semEstoque ? 'disabled style="opacity:0.5;"' : ''}>+ Caixa</button></td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function filtrarPDV() {
@@ -763,14 +757,11 @@
             totalCaixa += Number(preco);
             document.getElementById('total-caixa').textContent = 'R$ ' + totalCaixa.toFixed(2).replace('.',',');
             
-            var htmlItens = "";
-            for(var i = 0; i < listaCaixa.length; i++) {
-                var item = listaCaixa[i];
-                htmlItens += '<div style="display:flex; justify-content:space-between; border-bottom:1px dashed #CCC; padding:5px 0;">' +
-                    '<span>' + item.nome + '</span><strong>R$ ' + item.preco.toFixed(2).replace('.',',') + '</strong>' +
-                    '</div>';
-            }
-            document.getElementById('itens-caixa').innerHTML = htmlItens;
+            document.getElementById('itens-caixa').innerHTML = listaCaixa.map(item => `
+                <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #CCC; padding:5px 0;">
+                    <span>${item.nome}</span><strong>R$ ${item.preco.toFixed(2).replace('.', ',')}</strong>
+                </div>
+            `).join('');
         }
 
         async function finalizarVendaPDV() {
@@ -786,7 +777,7 @@
                 listaCaixa.forEach(item => { contagemItens[item.id] = (contagemItens[item.id] || 0) + 1; });
 
                 for (var id in contagemItens) {
-                    var prodOriginal = todosProdutos.find(p => p.id == id);
+                    var prodOriginal = todosProdutos.find(p => String(p.id) === String(id));
                     if(prodOriginal) {
                         var novoEstoque = Math.max(0, (prodOriginal.estoque || 0) - contagemItens[id]);
                         var updateRes = await _supabase.from('outlet_produtos').update({ estoque: novoEstoque }).eq('id', id);
@@ -816,53 +807,46 @@
         }
 
         function renderizarVendas(lista) {
-            var tbody = document.getElementById('erp-vendas-body');
+            const tbody = document.getElementById('erp-vendas-body');
             if(!lista || lista.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888; padding:20px;">Nenhuma venda registrada.</td></tr>';
                 return;
             }
 
-            var htmlRows = "";
-            for(var i = 0; i < lista.length; i++) {
-                var v = lista[i];
-                var itensParsed = [];
+            tbody.innerHTML = lista.map(v => {
+                let itensParsed = [];
                 try { itensParsed = typeof v.itens === 'string' ? JSON.parse(v.itens) : v.itens; } catch(e) { itensParsed = []; }
                 
-                var itensStr = "";
-                if(Array.isArray(itensParsed)) {
-                    itensParsed.forEach(it => { itensStr += (it.qtd || 1) + "x " + (it.nome || 'Produto') + "<br>"; });
-                } else {
-                    itensStr = "Detalhes indisponíveis";
-                }
+                let itensStr = Array.isArray(itensParsed) 
+                    ? itensParsed.map(it => `${it.qtd || 1}x ${it.nome || 'Produto'}`).join('<br>') 
+                    : 'Detalhes indisponíveis';
 
-                var dataFmt = v.created_at ? new Date(v.created_at).toLocaleString('pt-BR') : '-';
-                var statusAtual = (v.status || 'Pendente de Validação').trim();
-                var badgeClass = 'status-pendente';
+                let dataFmt = v.created_at ? new Date(v.created_at).toLocaleString('pt-BR') : '-';
+                let statusAtual = (v.status || 'Pendente de Validação').trim();
+                let badgeClass = 'status-pendente';
                 
                 if(statusAtual.toLowerCase() === 'confirmado') badgeClass = 'status-confirmado';
                 if(statusAtual.toLowerCase() === 'cancelado') badgeClass = 'status-cancelado';
 
-                var botoesAcao = "";
-                if(statusAtual.toLowerCase().includes('pendente')) {
-                    botoesAcao = '<button class="btn-success" onclick="abrirModalValidar('' + v.id + '')" style="margin-bottom:4px;">Aprovar</button><br>' +
-                                 '<button class="btn-danger" onclick="alterarStatusVenda('' + v.id + '', 'Cancelado')">Cancelar</button>';
-                } else {
-                    botoesAcao = '<span style="font-size:0.75rem; color:#888;">Concluído</span>';
-                }
+                let botoesAcao = statusAtual.toLowerCase().includes('pendente')
+                    ? `<button class="btn-success" onclick="abrirModalValidar('${v.id}')" style="margin-bottom:4px;">Aprovar</button><br>
+                       <button class="btn-danger" onclick="alterarStatusVenda('${v.id}', 'Cancelado')">Cancelar</button>`
+                    : '<span style="font-size:0.75rem; color:#888;">Concluído</span>';
 
-                var totalVenda = Number(v.total || v.valor_total || 0).toFixed(2).replace('.',',');
+                let totalVenda = Number(v.total || v.valor_total || 0).toFixed(2).replace('.', ',');
 
-                htmlRows += '<tr>' +
-                    '<td style="font-size:0.75rem; color:#666;">ID: ' + v.id + '<br>' + dataFmt + '</td>' +
-                    '<td style="font-weight:600;">' + (v.cliente_nome || 'Cliente Web') + '</td>' +
-                    '<td style="font-size:0.8rem;">' + itensStr + '</td>' +
-                    '<td style="font-weight:bold; color:var(--brand-burgundy);">R$ ' + totalVenda + '</td>' +
-                    '<td>' + (v.forma_pagamento || '-') + '</td>' +
-                    '<td><span class="badge-status ' + badgeClass + '">' + statusAtual + '</span></td>' +
-                    '<td>' + botoesAcao + '</td>' +
-                    '</tr>';
-            }
-            tbody.innerHTML = htmlRows;
+                return `
+                    <tr>
+                        <td style="font-size:0.75rem; color:#666;">ID: ${v.id}<br>${dataFmt}</td>
+                        <td style="font-weight:600;">${v.cliente_nome || 'Cliente Web'}</td>
+                        <td style="font-size:0.8rem;">${itensStr}</td>
+                        <td style="font-weight:bold; color:var(--brand-burgundy);">R$ ${totalVenda}</td>
+                        <td>${v.forma_pagamento || '-'}</td>
+                        <td><span class="badge-status ${badgeClass}">${statusAtual}</span></td>
+                        <td>${botoesAcao}</td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         var vendaSelecionadaId = null;
@@ -876,11 +860,11 @@
 
             var resumo = "";
             if(Array.isArray(itensParsed)) {
-                itensParsed.forEach(it => { resumo += (it.qtd || 1) + "x " + it.nome + " (R$ " + ((it.preco || 0) * (it.qtd || 1)).toFixed(2) + "), "; });
+                resumo = itensParsed.map(it => `${it.qtd || 1}x ${it.nome} (R$ ${((it.preco || 0) * (it.qtd || 1)).toFixed(2)})`).join(', ');
             }
 
             var totalVal = Number(venda.total || venda.valor_total || 0).toFixed(2).replace('.',',');
-            document.getElementById('validar-detalhes-pedido').innerHTML = '<strong>Itens:</strong> ' + resumo + '<br><strong>Total:</strong> R$ ' + totalVal;
+            document.getElementById('validar-detalhes-pedido').innerHTML = `<strong>Itens:</strong> ${resumo}<br><strong>Total:</strong> R$ ${totalVal}`;
             document.getElementById('modal-validar-venda').classList.add('active');
         }
 

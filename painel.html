@@ -6,6 +6,7 @@
     <title>Gestão ERP | Outlet Católico</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
 
@@ -42,7 +43,7 @@
         .btn-success { background: var(--success-green); color: #FFF; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
         .btn-danger { background: var(--danger-red); color: #FFF; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
         
-        .table-erp { width: 100%; border-collapse: collapse; }
+        .table-erp { width: 100%; border-collapse: collapse; margin-top: 15px; }
         .table-erp th, .table-erp td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.88rem; }
         .table-erp th { background: #F8F9FA; font-weight: 600; }
         .table-erp img { width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid #EEE; }
@@ -55,6 +56,11 @@
         .status-confirmado { background: #d1e7dd; color: #0f5132; }
         .status-cancelado { background: #f8d7da; color: #842029; }
 
+        .charts-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+        .chart-card { background: #F8F9FA; border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; position: relative; height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .chart-card h4 { font-size: 0.9rem; color: var(--brand-burgundy); margin-bottom: 10px; width: 100%; text-align: left; }
+        .chart-card canvas { max-height: 220px; width: 100% !important; }
+
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center; }
         .modal-overlay.active { display: flex; }
         .modal-content { background: #FFF; padding: 25px; border-radius: 12px; width: 100%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
@@ -62,7 +68,6 @@
         .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #555; }
         .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #CCC; border-radius: 6px; font-family: 'Montserrat'; }
 
-        /* TOAST NOTIFICATION CSS */
         #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
         .toast { background: #FFF; color: #333; padding: 15px 20px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 12px; font-size: 0.9rem; font-weight: 600; min-width: 280px; max-width: 400px; pointer-events: auto; animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.7s forwards; border-left: 5px solid var(--brand-burgundy); }
         .toast.success { border-left-color: var(--success-green); }
@@ -103,7 +108,6 @@
                 <h2 style="color: var(--brand-burgundy); border-bottom: 2px solid #EEE; padding-bottom: 10px; margin-bottom: 15px;">Frente de Caixa (PDV Balcão)</h2>
                 <div class="pdv-grid">
                     <div>
-                        <label for="pdv-search" style="display:none;">Buscar produtos</label>
                         <input type="text" id="pdv-search" class="filter-input" placeholder="🔍 Buscar por código ou nome..." onkeyup="filtrarPDV()">
                         <table class="table-erp">
                             <thead><tr><th>SKU</th><th>Produto</th><th>Estoque</th><th>Preço</th><th>Ação</th></tr></thead>
@@ -116,7 +120,7 @@
                         <hr style="margin: 15px 0; border: 1px solid #DDD;">
                         
                         <div class="form-group" style="margin-bottom: 10px;">
-                            <label for="forma-pagamento" style="font-size:0.8rem; font-weight:bold;">Forma de Pagamento:</label>
+                            <label style="font-size:0.8rem; font-weight:bold;">Forma de Pagamento:</label>
                             <select id="forma-pagamento" class="filter-input" style="margin:0; padding:8px;">
                                 <option value="Pix">PIX</option>
                                 <option value="Dinheiro">Dinheiro</option>
@@ -137,10 +141,22 @@
             <!-- ABA 2: ESTOQUE E CADASTRO -->
             <section id="aba-estoque" class="tab-section">
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #EEE; padding-bottom: 10px; margin-bottom: 15px;">
-                    <h2 style="color: var(--brand-burgundy);">Catálogo de Produtos</h2>
+                    <h2 style="color: var(--brand-burgundy);">Catálogo de Produtos & Análise de Estoque</h2>
                     <button class="btn-primary" onclick="abrirModalProduto()"><i class="fa-solid fa-plus"></i> Novo Produto</button>
                 </div>
-                <label for="erp-search" style="display:none;">Buscar produto no sistema</label>
+
+                <!-- GRÁFICOS DE ESTOQUE (PRINT 3) -->
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h4>Produtos em Baixa / Esgotados (≤ 3 un)</h4>
+                        <canvas id="chartEstoqueBaixo"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Resumo Geral do Inventário</h4>
+                        <canvas id="chartResumoEstoque"></canvas>
+                    </div>
+                </div>
+
                 <input type="text" id="erp-search" class="filter-input" placeholder="🔍 Buscar produto no sistema..." onkeyup="filtrarEstoque()">
                 <table class="table-erp">
                     <thead><tr><th>Foto</th><th>SKU</th><th>Nome</th><th>Preço Venda</th><th>Estoque</th><th>Ação</th></tr></thead>
@@ -154,6 +170,19 @@
                     <h2 style="color: var(--brand-burgundy);">Relatório de Vendas & Validações Web</h2>
                     <button class="btn-primary" onclick="carregarVendas()"><i class="fa-solid fa-rotate"></i> Atualizar Lista</button>
                 </div>
+
+                <!-- GRÁFICOS DE VENDAS (PRINT 2) -->
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h4>Vendas por Forma de Pagamento</h4>
+                        <canvas id="chartVendasPagamento"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Status dos Pedidos & Web</h4>
+                        <canvas id="chartVendasStatus"></canvas>
+                    </div>
+                </div>
+
                 <table class="table-erp">
                     <thead>
                         <tr>
@@ -206,7 +235,7 @@
         </main>
     </div>
 
-    <!-- MODAL DE CADASTRO/EDIÇÃO DE PRODUTOS -->
+    <!-- MODAL DE PRODUTOS -->
     <div class="modal-overlay" id="modal-produto">
         <div class="modal-content">
             <h3 id="modal-title" style="color: var(--brand-burgundy); margin-bottom: 15px; border-bottom: 2px solid #EEE; padding-bottom:10px;">Novo Produto</h3>
@@ -215,7 +244,7 @@
                 <input type="hidden" id="form-imagem-base64">
 
                 <div class="form-group">
-                    <label for="input-arquivo-foto">Foto do Produto (Upload ou Câmera)</label>
+                    <label>Foto do Produto (Upload ou Câmera)</label>
                     <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
                         <input type="file" id="input-arquivo-foto" accept="image/*" onchange="converterArquivoParaBase64(this)" style="font-size:0.85rem; flex:1;">
                         <button type="button" class="btn-secundary" onclick="acionarCamera()"><i class="fa-solid fa-camera"></i> Tirar Foto</button>
@@ -226,22 +255,22 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="form-nome">Nome do Produto *</label>
+                    <label>Nome do Produto *</label>
                     <input type="text" id="form-nome" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="form-sku">Código SKU / Fornecedor</label>
-                    <input type="text" id="form-sku" placeholder="Ex: Fornecedor ABC ou SKU">
+                    <label>Código SKU / Fornecedor</label>
+                    <input type="text" id="form-sku" placeholder="Ex: SKU ou Fornecedor">
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                     <div class="form-group">
-                        <label for="form-preco">Preço (R$) *</label>
+                        <label>Preço (R$) *</label>
                         <input type="number" step="0.01" id="form-preco" required>
                     </div>
                     <div class="form-group">
-                        <label for="form-estoque">Estoque *</label>
+                        <label>Estoque *</label>
                         <input type="number" id="form-estoque" required>
                     </div>
                 </div>
@@ -254,7 +283,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE CADASTRO DE CUSTOS E FORNECEDORES (COM INPUT MANUAL) -->
+    <!-- MODAL DE CUSTOS E DESPESAS -->
     <div class="modal-overlay" id="modal-custo">
         <div class="modal-content">
             <h3 style="color: var(--brand-burgundy); margin-bottom: 15px; border-bottom: 2px solid #EEE; padding-bottom:10px;">Lançar Custo ou Despesa</h3>
@@ -297,7 +326,7 @@
         </div>
     </div>
 
-    <!-- MODAL PARA VALIDAR VENDA DO WHATSAPP -->
+    <!-- MODAL VALIDAR VENDA -->
     <div class="modal-overlay" id="modal-validar-venda">
         <div class="modal-content">
             <h3 style="color: var(--brand-burgundy); margin-bottom: 15px; border-bottom: 2px solid #EEE; padding-bottom:10px;">Validar Venda do WhatsApp</h3>
@@ -306,7 +335,7 @@
             <p id="validar-detalhes-pedido" style="font-size: 0.9rem; color: #555; margin-bottom: 15px;"></p>
 
             <div class="form-group">
-                <label for="validar-forma-pagamento">Forma de Pagamento Combinada:</label>
+                <label>Forma de Pagamento Combinada:</label>
                 <select id="validar-forma-pagamento">
                     <option value="Pix">PIX</option>
                     <option value="Dinheiro">Dinheiro</option>
@@ -338,6 +367,12 @@
         let todasVendas = [];
         let listaCaixa = [];
         let totalCaixa = 0;
+
+        // Variáveis globais para instâncias de gráficos do Chart.js
+        let chartPagamentoInstance = null;
+        let chartStatusInstance = null;
+        let chartEstoqueBaixoInstance = null;
+        let chartResumoEstoqueInstance = null;
 
         document.addEventListener("DOMContentLoaded", function() {
             const dataAtual = new Date().toISOString().slice(0, 7);
@@ -375,6 +410,13 @@
             }
             document.getElementById('aba-' + aba).classList.add('active');
             btn.classList.add('active');
+
+            // Redesenhar gráficos ao abrir a aba correspondente
+            if(aba === 'vendas') {
+                setTimeout(renderizarGraficosVendas, 100);
+            } else if(aba === 'estoque') {
+                setTimeout(renderizarGraficosEstoque, 100);
+            }
         }
 
         async function carregarBanco() {
@@ -383,6 +425,7 @@
                 todosProdutos = response.data || [];
                 renderizarEstoque(todosProdutos);
                 renderizarPDV(todosProdutos);
+                renderizarGraficosEstoque();
             } catch (err) { 
                 console.error("Erro ao carregar produtos:", err); 
             }
@@ -394,23 +437,120 @@
                 if (response.error) throw response.error;
                 todasVendas = response.data || [];
                 renderizarVendas(todasVendas);
+                renderizarGraficosVendas();
             } catch (err) {
                 console.error("Erro ao carregar vendas:", err);
             }
         }
 
-        function acionarCamera() {
-            document.getElementById('input-camera').click();
+        // --- GRÁFICOS DE VENDAS (PRINT 2) ---
+        function renderizarGraficosVendas() {
+            // 1. Gráfico por Forma de Pagamento
+            let pagamentosCount = {};
+            todasVendas.forEach(v => {
+                let pg = v.forma_pagamento || 'A definir';
+                pagamentosCount[pg] = (pagamentosCount[pg] || 0) + 1;
+            });
+
+            const ctxPag = document.getElementById('chartVendasPagamento').getContext('2d');
+            if(chartPagamentoInstance) chartPagamentoInstance.destroy();
+
+            chartPagamentoInstance = new Chart(ctxPag, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(pagamentosCount),
+                    datasets: [{
+                        data: Object.values(pagamentosCount),
+                        backgroundColor: ['#7C1826', '#C09A53', '#198754', '#0d6efd', '#ffc107', '#6c757d']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } } }
+            });
+
+            // 2. Gráfico por Status de Vendas
+            let statusCount = { 'Confirmado': 0, 'Pendente': 0, 'Cancelado': 0 };
+            todasVendas.forEach(v => {
+                let st = (v.status || 'Pendente').toLowerCase();
+                if(st.includes('confirmado')) statusCount['Confirmado']++;
+                else if(st.includes('pendente')) statusCount['Pendente']++;
+                else if(st.includes('cancelado')) statusCount['Cancelado']++;
+                else statusCount['Pendente']++;
+            });
+
+            const ctxStatus = document.getElementById('chartVendasStatus').getContext('2d');
+            if(chartStatusInstance) chartStatusInstance.destroy();
+
+            chartStatusInstance = new Chart(ctxStatus, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(statusCount),
+                    datasets: [{
+                        label: 'Qtd de Pedidos',
+                        data: Object.values(statusCount),
+                        backgroundColor: ['#198754', '#ffc107', '#dc3545']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }, plugins: { legend: { display: false } } }
+            });
         }
 
+        // --- GRÁFICOS DE ESTOQUE (PRINT 3) ---
+        function renderizarGraficosEstoque() {
+            // 1. Produtos em baixa (<= 3 unidades)
+            let produtosBaixos = [...todosProdutos].sort((a, b) => (a.estoque || 0) - (b.estoque || 0)).slice(0, 5);
+            
+            const ctxEstBaixo = document.getElementById('chartEstoqueBaixo').getContext('2d');
+            if(chartEstoqueBaixoInstance) chartEstoqueBaixoInstance.destroy();
+
+            chartEstoqueBaixoInstance = new Chart(ctxEstBaixo, {
+                type: 'bar',
+                data: {
+                    labels: produtosBaixos.map(p => (p.nome || '').substring(0, 15) + '...'),
+                    datasets: [{
+                        label: 'Estoque Atual (un)',
+                        data: produtosBaixos.map(p => p.estoque || 0),
+                        backgroundColor: produtosBaixos.map(p => (p.estoque || 0) <= 0 ? '#dc3545' : '#C09A53')
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }, plugins: { legend: { display: false } } }
+            });
+
+            // 2. Resumo Geral do Inventário (Esgotados vs Baixo vs Normal)
+            let esgotados = 0;
+            let baixo = 0;
+            let normal = 0;
+
+            todosProdutos.forEach(p => {
+                let est = p.estoque || 0;
+                if(est <= 0) esgotados++;
+                else if(est <= 3) baixo++;
+                else normal++;
+            });
+
+            const ctxResumo = document.getElementById('chartResumoEstoque').getContext('2d');
+            if(chartResumoEstoqueInstance) chartResumoEstoqueInstance.destroy();
+
+            chartResumoEstoqueInstance = new Chart(ctxResumo, {
+                type: 'pie',
+                data: {
+                    labels: ['Esgotados (0)', 'Estoque Baixo (1-3)', 'Normal (>3)'],
+                    datasets: [{
+                        data: [esgotados, baixo, normal],
+                        backgroundColor: ['#dc3545', '#ffc107', '#198754']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } } }
+            });
+        }
+
+        function acionarCamera() { document.getElementById('input-camera').click(); }
         function converterArquivoParaBase64(inputElement) {
             var file = inputElement.files[0];
             if (file) {
                 var reader = new FileReader();
                 reader.onload = function(e) {
-                    var base64String = e.target.result;
-                    document.getElementById('form-imagem-base64').value = base64String;
-                    document.getElementById('preview-foto').src = base64String;
+                    document.getElementById('form-imagem-base64').value = e.target.result;
+                    document.getElementById('preview-foto').src = e.target.result;
                 };
                 reader.readAsDataURL(file);
             }
@@ -424,12 +564,12 @@
                 var p = lista[i];
                 var img = p.imagem_url ? p.imagem_url : 'https://via.placeholder.com/45';
                 html += '<tr>' +
-                '<td><img src="' + img + '" onerror="this.src=\'https://via.placeholder.com/45\'"></td>' +
+                '<td><img src="' + img + '" onerror="this.src='https://via.placeholder.com/45'"></td>' +
                 '<td style="font-size:0.8rem; color:#666;">' + (p.sku || '-') + '</td>' +
                 '<td style="font-weight:600;">' + p.nome + '</td>' +
                 '<td>R$ ' + Number(p.preco||0).toFixed(2).replace('.',',') + '</td>' +
                 '<td><strong>' + (p.estoque || 0) + ' un</strong></td>' +
-                '<td><button class="btn-secundary" onclick="abrirModalProduto(\'' + p.id + '\')"><i class="fa-solid fa-pen"></i> Editar</button></td>' +
+                '<td><button class="btn-secundary" onclick="abrirModalProduto('' + p.id + '')"><i class="fa-solid fa-pen"></i> Editar</button></td>' +
                 '</tr>';
             }
             tbody.innerHTML = html;
@@ -437,14 +577,7 @@
 
         function filtrarEstoque() {
             var termo = document.getElementById('erp-search').value.toLowerCase();
-            var filtrados = [];
-            for(var i = 0; i < todosProdutos.length; i++) {
-                var nome = (todosProdutos[i].nome || '').toLowerCase();
-                var sku = (todosProdutos[i].sku || '').toLowerCase();
-                if(nome.indexOf(termo) !== -1 || sku.indexOf(termo) !== -1) {
-                    filtrados.push(todosProdutos[i]);
-                }
-            }
+            var filtrados = todosProdutos.filter(p => (p.nome || '').toLowerCase().includes(termo) || (p.sku || '').toLowerCase().includes(termo));
             renderizarEstoque(filtrados);
         }
 
@@ -454,10 +587,7 @@
             form.reset();
             if (id) {
                 document.getElementById('modal-title').textContent = 'Editar Produto';
-                var p = null;
-                for(var i = 0; i < todosProdutos.length; i++) {
-                    if(todosProdutos[i].id == id) { p = todosProdutos[i]; break; }
-                }
+                var p = todosProdutos.find(item => item.id == id);
                 if (p) {
                     document.getElementById('form-id').value = p.id;
                     document.getElementById('form-imagem-base64').value = p.imagem_url || '';
@@ -475,9 +605,7 @@
             document.getElementById('modal-produto').classList.add('active');
         }
 
-        function fecharModalProduto() {
-            document.getElementById('modal-produto').classList.remove('active');
-        }
+        function fecharModalProduto() { document.getElementById('modal-produto').classList.remove('active'); }
 
         async function salvarProduto(e) {
             e.preventDefault();
@@ -513,13 +641,13 @@
             for(var i = 0; i < lista.length; i++) {
                 var p = lista[i];
                 var semEstoque = (p.estoque || 0) <= 0;
-                var nomeTratado = (p.nome || '').replace(/'/g, "\\'");
+                var nomeTratado = (p.nome || '').replace(/'/g, "\'");
                 html += '<tr>' +
                 '<td style="font-size:0.8rem; color:#666;">' + (p.sku || '-') + '</td>' +
                 '<td style="font-weight:600;">' + p.nome + '</td>' +
                 '<td>' + (p.estoque || 0) + ' un</td>' +
                 '<td style="color:var(--brand-burgundy); font-weight:bold;">R$ ' + Number(p.preco||0).toFixed(2).replace('.',',') + '</td>' +
-                '<td><button class="btn-secundary" onclick="addCaixa(\'' + p.id + '\', \'' + nomeTratado + '\', ' + p.preco + ')" ' + (semEstoque ? 'disabled style="opacity:0.5;"' : '') + '>+ Caixa</button></td>' +
+                '<td><button class="btn-secundary" onclick="addCaixa('' + p.id + '', '' + nomeTratado + '', ' + p.preco + ')" ' + (semEstoque ? 'disabled style="opacity:0.5;"' : '') + '>+ Caixa</button></td>' +
                 '</tr>';
             }
             tbody.innerHTML = html;
@@ -527,14 +655,7 @@
 
         function filtrarPDV() {
             var termo = document.getElementById('pdv-search').value.toLowerCase();
-            var filtrados = [];
-            for(var i = 0; i < todosProdutos.length; i++) {
-                var nome = (todosProdutos[i].nome || '').toLowerCase();
-                var sku = (todosProdutos[i].sku || '').toLowerCase();
-                if(nome.indexOf(termo) !== -1 || sku.indexOf(termo) !== -1) {
-                    filtrados.push(todosProdutos[i]);
-                }
-            }
+            var filtrados = todosProdutos.filter(p => (p.nome || '').toLowerCase().includes(termo) || (p.sku || '').toLowerCase().includes(termo));
             renderizarPDV(filtrados);
         }
 
@@ -563,16 +684,10 @@
 
             try {
                 var contagemItens = {};
-                for(var i = 0; i < listaCaixa.length; i++) {
-                    var itemId = listaCaixa[i].id;
-                    contagemItens[itemId] = (contagemItens[itemId] || 0) + 1;
-                }
+                listaCaixa.forEach(item => { contagemItens[item.id] = (contagemItens[item.id] || 0) + 1; });
 
                 for (var id in contagemItens) {
-                    var prodOriginal = null;
-                    for(var p = 0; p < todosProdutos.length; p++) {
-                        if(todosProdutos[p].id == id) { prodOriginal = todosProdutos[p]; break; }
-                    }
+                    var prodOriginal = todosProdutos.find(p => p.id == id);
                     if(prodOriginal) {
                         var novoEstoque = Math.max(0, (prodOriginal.estoque || 0) - contagemItens[id]);
                         var updateRes = await _supabase.from('outlet_produtos').update({ estoque: novoEstoque }).eq('id', id);
@@ -612,16 +727,11 @@
             for(var i = 0; i < lista.length; i++) {
                 var v = lista[i];
                 var itensParsed = [];
-                try { 
-                    itensParsed = typeof v.itens === 'string' ? JSON.parse(v.itens) : v.itens; 
-                } catch(e) { itensParsed = []; }
+                try { itensParsed = typeof v.itens === 'string' ? JSON.parse(v.itens) : v.itens; } catch(e) { itensParsed = []; }
                 
                 var itensStr = "";
                 if(Array.isArray(itensParsed)) {
-                    for(var k = 0; k < itensParsed.length; k++) {
-                        var it = itensParsed[k];
-                        itensStr += (it.qtd || 1) + "x " + (it.nome || 'Produto') + "<br>";
-                    }
+                    itensParsed.forEach(it => { itensStr += (it.qtd || 1) + "x " + (it.nome || 'Produto') + "<br>"; });
                 } else {
                     itensStr = "Detalhes indisponíveis";
                 }
@@ -635,8 +745,8 @@
 
                 var botoesAcao = "";
                 if(statusAtual.toLowerCase().includes('pendente')) {
-                    botoesAcao = '<button class="btn-success" onclick="abrirModalValidar(\'' + v.id + '\')" style="margin-bottom:4px;">Aprovar</button><br>' +
-                                 '<button class="btn-danger" onclick="alterarStatusVenda(\'' + v.id + '\', \'Cancelado\')">Cancelar</button>';
+                    botoesAcao = '<button class="btn-success" onclick="abrirModalValidar('' + v.id + '')" style="margin-bottom:4px;">Aprovar</button><br>' +
+                                 '<button class="btn-danger" onclick="alterarStatusVenda('' + v.id + '', 'Cancelado')">Cancelar</button>';
                 } else {
                     botoesAcao = '<span style="font-size:0.75rem; color:#888;">Concluído</span>';
                 }
@@ -659,23 +769,15 @@
         var vendaSelecionadaId = null;
         function abrirModalValidar(id) {
             vendaSelecionadaId = id;
-            var venda = null;
-            for(var i = 0; i < todasVendas.length; i++) {
-                if(String(todasVendas[i].id) === String(id)) { venda = todasVendas[i]; break; }
-            }
+            var venda = todasVendas.find(item => String(item.id) === String(id));
             if(!venda) return;
 
             var itensParsed = [];
-            try { 
-                itensParsed = typeof venda.itens === 'string' ? JSON.parse(venda.itens) : venda.itens; 
-            } catch(e) {}
+            try { itensParsed = typeof venda.itens === 'string' ? JSON.parse(venda.itens) : venda.itens; } catch(e) {}
 
             var resumo = "";
             if(Array.isArray(itensParsed)) {
-                for(var j = 0; j < itensParsed.length; j++) {
-                    var it = itensParsed[j];
-                    resumo += (it.qtd || 1) + "x " + it.nome + " (R$ " + ((it.preco || 0) * (it.qtd || 1)).toFixed(2) + "), ";
-                }
+                itensParsed.forEach(it => { resumo += (it.qtd || 1) + "x " + it.nome + " (R$ " + ((it.preco || 0) * (it.qtd || 1)).toFixed(2) + "), "; });
             }
 
             var totalVal = Number(venda.total || venda.valor_total || 0).toFixed(2).replace('.',',');
@@ -691,26 +793,17 @@
         async function confirmarVendaLoja() {
             if(!vendaSelecionadaId) return;
             var formaPgto = document.getElementById('validar-forma-pagamento').value;
-
-            var venda = null;
-            for(var i = 0; i < todasVendas.length; i++) {
-                if(String(todasVendas[i].id) === String(vendaSelecionadaId)) { venda = todasVendas[i]; break; }
-            }
+            var venda = todasVendas.find(item => String(item.id) === String(vendaSelecionadaId));
             if(!venda) return;
 
             var itensParsed = [];
-            try { 
-                itensParsed = typeof venda.itens === 'string' ? JSON.parse(venda.itens) : venda.itens; 
-            } catch(e) {}
+            try { itensParsed = typeof venda.itens === 'string' ? JSON.parse(venda.itens) : venda.itens; } catch(e) {}
 
             try {
                 if(Array.isArray(itensParsed)) {
                     for(var k = 0; k < itensParsed.length; k++) {
                         var item = itensParsed[k];
-                        var prod = null;
-                        for(var p = 0; p < todosProdutos.length; p++) {
-                            if(String(todosProdutos[p].id) === String(item.id)) { prod = todosProdutos[p]; break; }
-                        }
+                        var prod = todosProdutos.find(p => String(p.id) === String(item.id));
                         if(prod) {
                             var novoEstoque = Math.max(0, (prod.estoque || 0) - (item.qtd || 1));
                             await _supabase.from('outlet_produtos').update({ estoque: novoEstoque }).eq('id', item.id);
@@ -739,10 +832,7 @@
             if(!confirm('Deseja realmente marcar esta venda como ' + novoStatus + '?')) return;
 
             try {
-                var res = await _supabase.from('outlet_vendas').update({
-                    status: novoStatus
-                }).eq('id', id);
-
+                var res = await _supabase.from('outlet_vendas').update({ status: novoStatus }).eq('id', id);
                 if(res.error) throw res.error;
                 await carregarVendas();
                 mostrarMensagem('Status atualizado com sucesso.');
@@ -751,12 +841,10 @@
             }
         }
 
-        // FUNÇÕES DE GESTÃO DE FORNECEDORES E CUSTOS (COM INPUT MANUAL)
         function atualizarLabelTipoCusto() {
             const tipo = document.getElementById('custo-tipo').value;
             const label = document.getElementById('label-nome-referencia');
             const input = document.getElementById('custo-nome-manual');
-            
             if(tipo === 'fornecedor') {
                 label.textContent = 'Nome do Fornecedor:';
                 input.placeholder = 'Ex: Fornecedor João / Empresa ABC';
@@ -774,9 +862,7 @@
             document.getElementById('modal-custo').classList.add('active');
         }
 
-        function fecharModalCusto() {
-            document.getElementById('modal-custo').classList.remove('active');
-        }
+        function fecharModalCusto() { document.getElementById('modal-custo').classList.remove('active'); }
 
         async function salvarCustoDespesa(e) {
             e.preventDefault();
@@ -809,9 +895,7 @@
             const mesFiltro = document.getElementById('filtro-mes-custos').value;
             try {
                 let query = _supabase.from('outlet_custos_despesas').select('*');
-                if(mesFiltro) {
-                    query = query.eq('mes_ano', mesFiltro);
-                }
+                if(mesFiltro) query = query.eq('mes_ano', mesFiltro);
 
                 const { data, error } = await query.order('created_at', { ascending: false });
                 if(error) throw error;

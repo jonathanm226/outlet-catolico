@@ -61,7 +61,6 @@
         .chart-card h4 { font-size: 0.9rem; color: var(--brand-burgundy); margin-bottom: 10px; width: 100%; text-align: left; font-weight: 700; }
         .chart-card canvas { max-height: 230px; width: 100% !important; }
 
-        /* Summary clickable cards for costs */
         .summary-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .summary-card { background: #F8F9FA; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; cursor: pointer; transition: 0.2s; border-left: 4px solid var(--brand-burgundy); }
         .summary-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); background: #FFF; }
@@ -530,7 +529,6 @@
         }
 
         function renderizarGraficosEstoque() {
-            // Filtrar e ordenar produtos com menor estoque (<= 3)
             let produtosBaixos = [...todosProdutos].sort((a, b) => (a.estoque || 0) - (b.estoque || 0)).slice(0, 6);
             
             const ctxEstBaixo = document.getElementById('chartEstoqueBaixo').getContext('2d');
@@ -585,11 +583,9 @@
             });
         }
 
-        // --- GRÁFICO E RESUMO DE CUSTOS POR ANO ---
         function renderizarGraficoCustosAno() {
             let anosMap = {};
             todosCustos.forEach(item => {
-                // mes_ano vem no formato "YYYY-MM"
                 let ano = item.mes_ano ? item.mes_ano.split('-')[0] : '2026';
                 anosMap[ano] = (anosMap[ano] || 0) + Number(item.valor || 0);
             });
@@ -641,11 +637,8 @@
 
         function filtrarTipoCusto(tipo, cardElement) {
             filtroTipoCustoAtual = tipo;
-            
-            // Atualizar classes visuais dos cards
             document.querySelectorAll('.summary-card').forEach(c => c.classList.remove('active-filter'));
             if(cardElement) cardElement.classList.add('active-filter');
-
             aplicarFiltrosTabelaCustos();
         }
 
@@ -1003,7 +996,6 @@
                 if(error) throw error;
                 todosCustos = data || [];
                 
-                // Atualizar gráfico anual e cards de resumo
                 renderizarGraficoCustosAno();
                 atualizarCardsResumoCustos();
                 aplicarFiltrosTabelaCustos();
@@ -1039,15 +1031,12 @@
 
         function aplicarFiltrosTabelaCustos() {
             const mesFiltro = document.getElementById('filtro-mes-custos').value;
-            
             let filtrados = todosCustos;
 
-            // Filtro por mês
             if(mesFiltro) {
                 filtrados = filtrados.filter(item => item.mes_ano === mesFiltro);
             }
 
-            // Filtro por tipo (clique nos cards)
             if(filtroTipoCustoAtual !== 'todos') {
                 filtrados = filtrados.filter(item => item.tipo === filtroTipoCustoAtual);
             }

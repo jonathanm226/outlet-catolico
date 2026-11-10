@@ -368,7 +368,6 @@
         let listaCaixa = [];
         let totalCaixa = 0;
 
-        // Variáveis globais para instâncias de gráficos do Chart.js
         let chartPagamentoInstance = null;
         let chartStatusInstance = null;
         let chartEstoqueBaixoInstance = null;
@@ -411,7 +410,6 @@
             document.getElementById('aba-' + aba).classList.add('active');
             btn.classList.add('active');
 
-            // Redesenhar gráficos ao abrir a aba correspondente
             if(aba === 'vendas') {
                 setTimeout(renderizarGraficosVendas, 100);
             } else if(aba === 'estoque') {
@@ -443,9 +441,7 @@
             }
         }
 
-        // --- GRÁFICOS DE VENDAS (PRINT 2) ---
         function renderizarGraficosVendas() {
-            // 1. Gráfico por Forma de Pagamento
             let pagamentosCount = {};
             todasVendas.forEach(v => {
                 let pg = v.forma_pagamento || 'A definir';
@@ -467,7 +463,6 @@
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } } }
             });
 
-            // 2. Gráfico por Status de Vendas
             let statusCount = { 'Confirmado': 0, 'Pendente': 0, 'Cancelado': 0 };
             todasVendas.forEach(v => {
                 let st = (v.status || 'Pendente').toLowerCase();
@@ -494,9 +489,7 @@
             });
         }
 
-        // --- GRÁFICOS DE ESTOQUE (PRINT 3) ---
         function renderizarGraficosEstoque() {
-            // 1. Produtos em baixa (<= 3 unidades)
             let produtosBaixos = [...todosProdutos].sort((a, b) => (a.estoque || 0) - (b.estoque || 0)).slice(0, 5);
             
             const ctxEstBaixo = document.getElementById('chartEstoqueBaixo').getContext('2d');
@@ -515,7 +508,6 @@
                 options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }, plugins: { legend: { display: false } } }
             });
 
-            // 2. Resumo Geral do Inventário (Esgotados vs Baixo vs Normal)
             let esgotados = 0;
             let baixo = 0;
             let normal = 0;
@@ -564,12 +556,12 @@
                 var p = lista[i];
                 var img = p.imagem_url ? p.imagem_url : 'https://via.placeholder.com/45';
                 html += '<tr>' +
-                '<td><img src="' + img + '" onerror="this.src='https://via.placeholder.com/45'"></td>' +
+                '<td><img src="' + img + '" onerror="this.src=\'https://via.placeholder.com/45\'"></td>' +
                 '<td style="font-size:0.8rem; color:#666;">' + (p.sku || '-') + '</td>' +
                 '<td style="font-weight:600;">' + p.nome + '</td>' +
                 '<td>R$ ' + Number(p.preco||0).toFixed(2).replace('.',',') + '</td>' +
                 '<td><strong>' + (p.estoque || 0) + ' un</strong></td>' +
-                '<td><button class="btn-secundary" onclick="abrirModalProduto('' + p.id + '')"><i class="fa-solid fa-pen"></i> Editar</button></td>' +
+                '<td><button class="btn-secundary" onclick="abrirModalProduto(\'' + p.id + '\')"><i class="fa-solid fa-pen"></i> Editar</button></td>' +
                 '</tr>';
             }
             tbody.innerHTML = html;
@@ -641,13 +633,13 @@
             for(var i = 0; i < lista.length; i++) {
                 var p = lista[i];
                 var semEstoque = (p.estoque || 0) <= 0;
-                var nomeTratado = (p.nome || '').replace(/'/g, "\'");
+                var nomeTratado = (p.nome || '').replace(/'/g, "\\'");
                 html += '<tr>' +
                 '<td style="font-size:0.8rem; color:#666;">' + (p.sku || '-') + '</td>' +
                 '<td style="font-weight:600;">' + p.nome + '</td>' +
                 '<td>' + (p.estoque || 0) + ' un</td>' +
                 '<td style="color:var(--brand-burgundy); font-weight:bold;">R$ ' + Number(p.preco||0).toFixed(2).replace('.',',') + '</td>' +
-                '<td><button class="btn-secundary" onclick="addCaixa('' + p.id + '', '' + nomeTratado + '', ' + p.preco + ')" ' + (semEstoque ? 'disabled style="opacity:0.5;"' : '') + '>+ Caixa</button></td>' +
+                '<td><button class="btn-secundary" onclick="addCaixa(\'' + p.id + '\', \'' + nomeTratado + '\', ' + p.preco + ')" ' + (semEstoque ? 'disabled style="opacity:0.5;"' : '') + '>+ Caixa</button></td>' +
                 '</tr>';
             }
             tbody.innerHTML = html;
@@ -745,8 +737,8 @@
 
                 var botoesAcao = "";
                 if(statusAtual.toLowerCase().includes('pendente')) {
-                    botoesAcao = '<button class="btn-success" onclick="abrirModalValidar('' + v.id + '')" style="margin-bottom:4px;">Aprovar</button><br>' +
-                                 '<button class="btn-danger" onclick="alterarStatusVenda('' + v.id + '', 'Cancelado')">Cancelar</button>';
+                    botoesAcao = '<button class="btn-success" onclick="abrirModalValidar(\'' + v.id + '\')" style="margin-bottom:4px;">Aprovar</button><br>' +
+                                 '<button class="btn-danger" onclick="alterarStatusVenda(\'' + v.id + '\', \'Cancelado\')">Cancelar</button>';
                 } else {
                     botoesAcao = '<span style="font-size:0.75rem; color:#888;">Concluído</span>';
                 }

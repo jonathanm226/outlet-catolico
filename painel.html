@@ -104,6 +104,7 @@
                 <li class="menu-item active" onclick="trocarAba('pdv', this)"><i class="fa-solid fa-cash-register"></i> PDV (Caixa)</li>
                 <li class="menu-item" onclick="trocarAba('estoque', this)"><i class="fa-solid fa-boxes-stacked"></i> Gestão de Estoque</li>
                 <li class="menu-item" onclick="trocarAba('vendas', this)"><i class="fa-solid fa-chart-line"></i> Relatório de Vendas</li>
+                <li class="menu-item" onclick="trocarAba('consignados', this)"><i class="fa-solid fa-handshake"></i> Gestão de Consignados</li>
                 <li class="menu-item" onclick="trocarAba('fornecedores', this)"><i class="fa-solid fa-truck-field"></i> Gestão de Fornecedores & Custos</li>
             </ul>
         </aside>
@@ -213,10 +214,10 @@
                     <button class="btn-primary" onclick="carregarVendas()"><i class="fa-solid fa-rotate"></i> Atualizar Lista</button>
                 </div>
                 <div class="summary-cards-grid">
-                    <div class="summary-card"><h5>Faturamento Total</h5><div class="value" id="vendas-total-fat">R$ 0,00</div></div>
-                    <div class="summary-card"><h5>Total de Pedidos</h5><div class="value" id="vendas-total-qtd">0</div></div>
-                    <div class="summary-card"><h5>Ticket Médio</h5><div class="value" id="vendas-ticket-medio">R$ 0,00</div></div>
-                    <div class="summary-card" style="border-left-color: var(--warning-yellow);"><h5>Pendentes Aprovação</h5><div class="value" id="vendas-total-pendentes" style="color: #856404;">0</div></div>
+                    <div class="summary-card" onclick="filtrarCardVendas('faturamento')"><h5>Faturamento Total</h5><div class="value" id="vendas-total-fat">R$ 0,00</div></div>
+                    <div class="summary-card" onclick="filtrarCardVendas('todos')"><h5>Total de Pedidos</h5><div class="value" id="vendas-total-qtd">0</div></div>
+                    <div class="summary-card" onclick="filtrarCardVendas('todos')"><h5>Ticket Médio</h5><div class="value" id="vendas-ticket-medio">R$ 0,00</div></div>
+                    <div class="summary-card" style="border-left-color: var(--warning-yellow);" onclick="filtrarCardVendas('pendente')"><h5>Pendentes Aprovação</h5><div class="value" id="vendas-total-pendentes" style="color: #856404;">0</div></div>
                 </div>
                 <div class="charts-container">
                     <div class="chart-card"><h4>Vendas por Forma de Pagamento</h4><canvas id="chartVendasPagamento"></canvas></div>
@@ -239,7 +240,22 @@
                 </table>
             </section>
 
-            <!-- ABA 4: GESTÃO DE FORNECEDORES E CUSTOS -->
+            <!-- ABA 4: GESTÃO DE CONSIGNADOS -->
+            <section id="aba-consignados" class="tab-section">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #EEE; padding-bottom: 10px; margin-bottom: 15px;">
+                    <h2 style="color: var(--brand-burgundy);">Controle de Mercadorias Consignadas</h2>
+                    <button class="btn-primary" onclick="trocarAba('pdv', document.querySelector('.sidebar li'))"><i class="fa-solid fa-plus"></i> Nova Consignação (Via PDV)</button>
+                </div>
+                <div style="display:flex; gap:15px; margin-bottom:15px; align-items:center;">
+                    <input type="text" id="consignados-search" class="filter-input" style="margin:0;" placeholder="🔍 Buscar por responsável, paróquia ou evento..." onkeyup="filtrarConsignados()">
+                </div>
+                <table class="table-erp">
+                    <thead><tr><th>Retirada / Acerto</th><th>Responsável / Paróquia</th><th>Itens Consignados</th><th>Total Estimado</th><th>Status</th><th>Ações</th></tr></thead>
+                    <tbody id="erp-consignados-body"></tbody>
+                </table>
+            </section>
+
+            <!-- ABA 5: GESTÃO DE FORNECEDORES E CUSTOS -->
             <section id="aba-fornecedores" class="tab-section">
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #EEE; padding-bottom: 10px; margin-bottom: 15px;">
                     <h2 style="color: var(--brand-burgundy);">Gestão de Fornecedores e Custos Operacionais</h2>
@@ -448,6 +464,44 @@
         </div>
     </div>
 
+    <!-- ================= MODAL ACERTO DE CONSIGNAÇÃO ================= -->
+    <div class="modal-overlay" id="modal-acerto-consignado">
+        <div class="modal-content" style="max-width: 650px;">
+            <h3 style="color: var(--brand-burgundy); margin-bottom: 10px; border-bottom: 2px solid #EEE; padding-bottom:10px;"><i class="fa-solid fa-handshake-angle"></i> Acerto e Fechamento de Consignado</h3>
+            <input type="hidden" id="acerto-consig-id">
+            
+            <div id="acerto-info-responsavel" style="font-size: 0.9rem; margin-bottom: 15px; background: #F8F9FA; padding: 10px; border-radius: 6px;"></div>
+
+            <h4 style="font-size: 0.9rem; margin-bottom: 8px; color: #444;">Informe a Quantidade Vendida de Cada Item:</h4>
+            <div style="max-height: 250px; overflow-y: auto; border: 1px solid #DDD; border-radius: 6px; margin-bottom: 15px;">
+                <table class="table-erp" style="margin-top:0;">
+                    <thead><tr><th>Produto</th><th>Qtd Retirada</th><th>Qtd Vendida</th><th>Devolvidos (Estoque)</th></tr></thead>
+                    <tbody id="tbody-acerto-itens"></tbody>
+                </table>
+            </div>
+
+            <div class="form-group">
+                <label>Forma de Pagamento do Acerto:</label>
+                <select id="acerto-forma-pagamento" class="filter-input" style="margin:0; padding:10px;">
+                    <option value="Pix">PIX</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Débito">Cartão de Débito</option>
+                    <option value="Crédito à Vista">Crédito à Vista</option>
+                    <option value="Crédito Parcelado">Crédito Parcelado</option>
+                </select>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.2rem; margin-top:10px; background: #FDE8EC; padding: 10px; border-radius: 6px;">
+                <span>Total Efetivo Vendido:</span><span id="acerto-total-calculado" style="color:var(--brand-burgundy);">R$ 0,00</span>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                <button type="button" class="btn-secundary" onclick="fecharModalAcerto()">Cancelar</button>
+                <button type="button" class="btn-primary" onclick="confirmarFechamentoAcerto()">Concluir Acerto e Retornar Devolvidos</button>
+            </div>
+        </div>
+    </div>
+
     <input type="file" id="input-camera" accept="image/*" capture="environment" style="display:none;" onchange="converterArquivoParaBase64(this)">
 
     <footer>
@@ -461,6 +515,7 @@
 
         let todosProdutos = [];
         let todasVendas = [];
+        let todasConsignacoes = [];
         let todosCustos = [];
         let filtroTipoCustoAtual = 'todos';
         let listaCaixa = [];
@@ -472,7 +527,6 @@
         let chartResumoEstoqueInstance = null;
         let chartCustosAnoInstance = null;
 
-        // Arrays auxiliares para a Tabela do Doughnut
         let produtosEsgotados = [];
         let produtosEstoqueBaixo = [];
         let produtosEstoqueNormal = [];
@@ -484,11 +538,11 @@
             if(filtroMes) filtroMes.value = dataAtual;
             if(inputMesCusto) inputMesCusto.value = dataAtual;
             
-            // Setando hoje no form de consignação
             document.getElementById('consig-data-retirada').value = new Date().toISOString().split('T')[0];
 
             carregarBanco();
             carregarVendas();
+            carregarConsignacoes();
             carregarCustosDespesas();
         });
 
@@ -509,10 +563,11 @@
             document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.sidebar li').forEach(l => l.classList.remove('active'));
             document.getElementById('aba-' + aba).classList.add('active');
-            btn.classList.add('active');
+            if(btn) btn.classList.add('active');
 
             if(aba === 'vendas') setTimeout(renderizarGraficosVendas, 100);
             else if(aba === 'estoque') setTimeout(renderizarGraficosEstoque, 100);
+            else if(aba === 'consignados') carregarConsignacoes();
             else if(aba === 'fornecedores') setTimeout(renderizarGraficoCustosAno, 100);
         }
 
@@ -563,11 +618,9 @@
             };
 
             try {
-                // 1. Salvar a Consignação
                 const resConsig = await _supabase.from('outlet_consignacoes').insert([payload]);
                 if(resConsig.error) throw resConsig.error;
 
-                // 2. Dar Baixa no Estoque
                 let contagemItens = {};
                 listaCaixa.forEach(item => { contagemItens[item.id] = (contagemItens[item.id] || 0) + item.qtd; });
 
@@ -580,8 +633,6 @@
                 }
 
                 mostrarMensagem('Consignação registrada com sucesso!');
-                
-                // 3. Gerar PDF/Impressão da Ficha de Consignação
                 gerarReciboConsignacao(payload, listaCaixa);
 
                 fecharModalConsignacao();
@@ -593,15 +644,196 @@
                 atualizarVisorCaixa();
                 
                 await carregarBanco();
+                await carregarConsignacoes();
 
             } catch (err) {
-                mostrarMensagem('Erro: Crie a tabela outlet_consignacoes no SQL primeiro e desabilite o RLS. Detalhes: ' + err.message, 'error');
+                mostrarMensagem('Erro: Crie a tabela outlet_consignacoes no SQL. Detalhes: ' + err.message, 'error');
+            }
+        }
+
+        async function carregarConsignacoes() {
+            try {
+                const { data, error } = await _supabase.from('outlet_consignacoes').select('*').order('created_at', { ascending: false });
+                if(error) throw error;
+                todasConsignacoes = data || [];
+                renderizarConsignacoes(todasConsignacoes);
+            } catch(err) {
+                console.error("Erro ao carregar consignações:", err);
+            }
+        }
+
+        function renderizarConsignacoes(lista) {
+            const tbody = document.getElementById('erp-consignados-body');
+            if(!tbody) return;
+
+            if(!lista || lista.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Nenhuma consignação registrada.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = lista.map(c => {
+                let itensParsed = [];
+                try { itensParsed = typeof c.itens === 'string' ? JSON.parse(c.itens) : c.itens; } catch(e) { itensParsed = []; }
+                
+                let itensStr = Array.isArray(itensParsed) 
+                    ? itensParsed.map(it => `${it.qtd || 1}x ${it.nome || 'Produto'} (R$ ${Number(it.preco || 0).toFixed(2)})`).join('<br>') 
+                    : 'Detalhes indisponíveis';
+
+                let dataRet = c.data_retirada ? c.data_retirada.split('-').reverse().join('/') : '-';
+                let dataAcerto = c.data_acerto ? c.data_acerto.split('-').reverse().join('/') : '-';
+                let status = c.status || 'Pendente';
+                let badgeClass = status.toLowerCase() === 'concluído' || status.toLowerCase() === 'acertado' ? 'status-confirmado' : 'status-pendente';
+
+                let acoesBtn = status.toLowerCase() === 'pendente' || status.toLowerCase() === 'aberto'
+                    ? `<button class="btn-success" onclick="abrirModalAcerto('${c.id}')"><i class="fa-solid fa-check"></i> Fazer Acerto</button>`
+                    : `<span style="font-size:0.75rem; color:#666;">Acertado</span>`;
+
+                return `
+                    <tr>
+                        <td style="font-size:0.8rem; color:#555;"><strong>Retirada:</strong> ${dataRet}<br><strong>Devolução:</strong> <span style="color:var(--brand-burgundy); font-weight:bold;">${dataAcerto}</span></td>
+                        <td><strong>${c.responsavel}</strong><br><span style="font-size:0.75rem; color:#666;">${c.paroquia || c.evento || '-'} (${c.telefone || ''})</span></td>
+                        <td style="font-size:0.8rem;">${itensStr}</td>
+                        <td style="font-weight:bold; color:var(--brand-burgundy);">R$ ${Number(c.total_estimado || 0).toFixed(2).replace('.',',')}</td>
+                        <td><span class="badge-status ${badgeClass}">${status}</span></td>
+                        <td>${acoesBtn}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filtrarConsignados() {
+            let termo = document.getElementById('consignados-search').value.toLowerCase();
+            let filtrados = todasConsignacoes.filter(c => 
+                (c.responsavel || '').toLowerCase().includes(termo) || 
+                (c.paroquia || '').toLowerCase().includes(termo) || 
+                (c.evento || '').toLowerCase().includes(termo)
+            );
+            renderizarConsignacoes(filtrados);
+        }
+
+        function abrirModalAcerto(id) {
+            let consig = todasConsignacoes.find(c => String(c.id) === String(id));
+            if(!consig) return;
+
+            document.getElementById('acerto-consig-id').value = consig.id;
+            document.getElementById('acerto-info-responsavel').innerHTML = `<strong>Responsável:</strong> ${consig.responsavel} | <strong>Devolução Prevista:</strong> ${consig.data_acerto ? consig.data_acerto.split('-').reverse().join('/') : '-'}`;
+
+            let itensParsed = [];
+            try { itensParsed = typeof consig.itens === 'string' ? JSON.parse(consig.itens) : consig.itens; } catch(e) { itensParsed = []; }
+
+            let tbody = document.getElementById('tbody-acerto-itens');
+            tbody.innerHTML = itensParsed.map((it, idx) => `
+                <tr data-id="${it.id}" data-preco="${it.preco}" data-max="${it.qtd}">
+                    <td style="font-weight:600; font-size:0.85rem;">${it.nome}</td>
+                    <td style="text-align:center;">${it.qtd} un</td>
+                    <td><input type="number" class="input-qtd-vendida" min="0" max="${it.qtd}" value="${it.qtd}" style="width:70px; padding:6px; text-align:center;" oninput="calcularTotalAcerto()"></td>
+                    <td style="text-align:center; font-weight:bold; color:var(--danger-red);" class="td-devolvido">0 un</td>
+                </tr>
+            `).join('');
+
+            calcularTotalAcerto();
+            document.getElementById('modal-acerto-consignado').classList.add('active');
+        }
+
+        function fecharModalAcerto() {
+            document.getElementById('modal-acerto-consignado').classList.remove('active');
+        }
+
+        function calcularTotalAcerto() {
+            let linhas = document.querySelectorAll('#tbody-acerto-itens tr');
+            let totalGeral = 0;
+
+            linhas.forEach(tr => {
+                let preco = Number(tr.getAttribute('data-preco'));
+                let max = Number(tr.getAttribute('data-max'));
+                let inputVendida = tr.querySelector('.input-qtd-vendida');
+                let tdDevolvido = tr.querySelector('.td-devolvido');
+
+                let vendida = Number(inputVendida.value);
+                if(vendida > max) { vendida = max; inputVendida.value = max; }
+                if(vendida < 0) { vendida = 0; inputVendida.value = 0; }
+
+                let devolvido = max - vendida;
+                tdDevolvido.textContent = `${devolvido} un`;
+
+                totalGeral += (vendida * preco);
+            });
+
+            document.getElementById('acerto-total-calculado').textContent = `R$ ${totalGeral.toFixed(2).replace('.',',')}`;
+        }
+
+        async function confirmarFechamentoAcerto() {
+            let idConsig = document.getElementById('acerto-consig-id').value;
+            let consigOriginal = todasConsignacoes.find(c => String(c.id) === String(idConsig));
+            if(!consigOriginal) return;
+
+            let itensParsed = [];
+            try { itensParsed = typeof consigOriginal.itens === 'string' ? JSON.parse(consigOriginal.itens) : consigOriginal.itens; } catch(e) { itensParsed = []; }
+
+            let linhas = document.querySelectorAll('#tbody-acerto-itens tr');
+            let novosItensVendidos = [];
+            let totalEfetivoVendido = 0;
+
+            linhas.forEach((tr, index) => {
+                let itemOrig = itensParsed[index];
+                let vendida = Number(tr.querySelector('.input-qtd-vendida').value);
+                let devolvido = itemOrig.qtd - vendida;
+
+                if(vendida > 0) {
+                    novosItensVendidos.push({
+                        id: itemOrig.id,
+                        nome: itemOrig.nome,
+                        preco: itemOrig.preco,
+                        qtd: vendida
+                    });
+                    totalEfetivoVendido += (vendida * itemOrig.preco);
+                }
+
+                // Retorna os devolvidos para o estoque
+                if(devolvido > 0) {
+                    let prod = todosProdutos.find(p => String(p.id) === String(itemOrig.id));
+                    if(prod) {
+                        let novoEstoque = Number(prod.estoque || 0) + devolvido;
+                        _supabase.from('outlet_produtos').update({ estoque: novoEstoque }).eq('id', itemOrig.id);
+                    }
+                }
+            });
+
+            let formaPgto = document.getElementById('acerto-forma-pagamento').value;
+
+            try {
+                // 1. Atualizar Consignação como Concluída
+                await _supabase.from('outlet_consignacoes').update({
+                    status: 'Concluído',
+                    total_estimado: totalEfetivoVendido
+                }).eq('id', idConsig);
+
+                // 2. Registrar na Venda Oficial apenas o que foi efetivamente vendido
+                if(novosItensVendidos.length > 0) {
+                    await _supabase.from('outlet_vendas').insert([{
+                        cliente_nome: `Consignado - ${consigOriginal.responsavel}`,
+                        cliente_telefone: consigOriginal.telefone || '',
+                        itens: JSON.stringify(novosItensVendidos),
+                        total: totalEfetivoVendido,
+                        status: 'Confirmado',
+                        forma_pagamento: formaPgto
+                    }]);
+                }
+
+                mostrarMensagem('Acerto de consignado concluído com sucesso! Estoque atualizado.');
+                fecharModalAcerto();
+
+                await carregarBanco();
+                await carregarConsignacoes();
+                await carregarVendas();
+
+            } catch(err) {
+                mostrarMensagem('Erro ao fechar acerto: ' + err.message, 'error');
             }
         }
 
         function gerarReciboConsignacao(payload, lista) {
             const janela = window.open('', '', 'width=800,height=600');
-            
             let htmlItens = lista.map((it, index) => `
                 <tr>
                     <td style="border: 1px solid #000; padding: 5px; text-align: center;">${index + 1}</td>
@@ -653,13 +885,9 @@
                     <h3 style="margin-top:20px; text-transform:uppercase;">1. Produtos Entregues em Consignação</h3>
                     <table class="table-itens">
                         <thead>
-                            <tr>
-                                <th>Nº</th><th>PRODUTO</th><th>QTD</th><th>VALOR UNIT.</th><th>VALOR TOTAL</th>
-                            </tr>
+                            <tr><th>Nº</th><th>PRODUTO</th><th>QTD</th><th>VALOR UNIT.</th><th>VALOR TOTAL</th></tr>
                         </thead>
-                        <tbody>
-                            ${htmlItens}
-                        </tbody>
+                        <tbody>${htmlItens}</tbody>
                         <tfoot>
                             <tr>
                                 <td colspan="4" style="text-align: right; font-weight: bold; padding:8px;">TOTAL ESTIMADO:</td>
@@ -674,23 +902,16 @@
                     </div>
                     
                     <script>
-                        window.onload = function() {
-                            window.print();
-                            setTimeout(function() { window.close(); }, 500);
-                        }
+                        window.onload = function() { window.print(); setTimeout(function() { window.close(); }, 500); }
                     <\/script>
                 </body>
                 </html>
             `;
-
             janela.document.write(html);
             janela.document.close();
         }
-        /* ====================================== */
-
 
         function renderizarGraficosEstoque() {
-            // GRÁFICO 1: BARRAS HORIZONTAIS
             let produtosBaixos = [...todosProdutos]
                 .filter(p => Number(p.estoque || 0) <= 3)
                 .sort((a, b) => Number(a.estoque || 0) - Number(b.estoque || 0))
@@ -711,7 +932,7 @@
                     }]
                 },
                 options: { 
-                    indexAxis: 'y', // SOLUÇÃO PARA O TEXTO SOBREPOSTO
+                    indexAxis: 'y', 
                     responsive: true, 
                     maintainAspectRatio: false, 
                     scales: { 
@@ -722,7 +943,6 @@
                 }
             });
 
-            // GRÁFICO 2: ROSCA INTERATIVA
             produtosEsgotados = [];
             produtosEstoqueBaixo = [];
             produtosEstoqueNormal = [];
@@ -751,16 +971,12 @@
                     maintainAspectRatio: false, 
                     plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
                     onClick: (e, activeEls) => {
-                        if (activeEls.length > 0) {
-                            const dataIndex = activeEls[0].index;
-                            mostrarListaDoughnut(dataIndex);
-                        }
+                        if (activeEls.length > 0) { mostrarListaDoughnut(activeEls[0].index); }
                     }
                 }
             });
         }
 
-        // FUNÇÕES DA TABELA INTERATIVA DO DOUGHNUT
         function mostrarListaDoughnut(index) {
             document.getElementById('view-chart-doughnut').style.display = 'none';
             document.getElementById('view-list-doughnut').style.display = 'flex';
@@ -793,7 +1009,6 @@
             document.getElementById('view-chart-doughnut').style.display = 'flex';
         }
 
-        // ================= FUNÇÕES DO PDV =================
         function renderizarPDV(lista) {
             const tbody = document.getElementById('pdv-table-body');
             if(!tbody) return;
@@ -820,7 +1035,6 @@
             let index = listaCaixa.findIndex(it => it.id === id);
             if(index > -1) { listaCaixa[index].qtd++; } 
             else { listaCaixa.push({ id: id, nome: nome, preco: Number(preco), qtd: 1 }); }
-            
             totalCaixa += Number(preco);
             atualizarVisorCaixa();
         }
@@ -960,7 +1174,6 @@
             }
         }
 
-        // ================= FUNÇÕES DE ESTOQUE E RESTANTE DO CÓDIGO (mantidas iguais) =================
         function renderizarEstoque(lista) {
             const tbody = document.getElementById('erp-table-body');
             if(!tbody) return;
@@ -986,9 +1199,7 @@
                 todasVendas = response.data || [];
                 renderizarVendas(todasVendas);
                 renderizarGraficosVendas();
-            } catch (err) {
-                console.error("Erro ao carregar vendas:", err);
-            }
+            } catch (err) { console.error(err); }
         }
         
         function renderizarVendas(lista) {
@@ -1033,6 +1244,68 @@
                 `;
             }).join('');
         }
+
+        async function abrirModalValidar(id) {
+            let venda = todasVendas.find(v => String(v.id) === String(id));
+            if(!venda) return;
+            document.getElementById('validar-venda-id').value = venda.id;
+            
+            let itensParsed = [];
+            try { itensParsed = typeof venda.itens === 'string' ? JSON.parse(venda.itens) : venda.itens; } catch(e) {}
+            let itensStr = Array.isArray(itensParsed) ? itensParsed.map(it => `${it.qtd}x ${it.nome}`).join(', ') : '';
+
+            document.getElementById('validar-detalhes-pedido').innerHTML = `<strong>Cliente:</strong> ${venda.cliente_nome || 'Web'} <br><strong>Itens:</strong> ${itensStr} <br><strong>Total:</strong> R$ ${Number(venda.total || 0).toFixed(2).replace('.',',')}`;
+            document.getElementById('modal-validar-venda').classList.add('active');
+        }
+
+        function fecharModalValidar() {
+            document.getElementById('modal-validar-venda').classList.remove('active');
+        }
+
+        async function confirmarVendaLoja() {
+            let id = document.getElementById('validar-venda-id').value;
+            let formaPgto = document.getElementById('validar-forma-pagamento').value;
+            let venda = todasVendas.find(v => String(v.id) === String(id));
+            if(!venda) return;
+
+            try {
+                let itensParsed = [];
+                try { itensParsed = typeof venda.itens === 'string' ? JSON.parse(venda.itens) : venda.itens; } catch(e) {}
+
+                let contagemItens = {};
+                itensParsed.forEach(item => { contagemItens[item.id] = (contagemItens[item.id] || 0) + item.qtd; });
+
+                for (let prodId in contagemItens) {
+                    let prodOriginal = todosProdutos.find(p => String(p.id) === String(prodId));
+                    if(prodOriginal) {
+                        let novoEstoque = Math.max(0, (prodOriginal.estoque || 0) - contagemItens[prodId]);
+                        await _supabase.from('outlet_produtos').update({ estoque: novoEstoque }).eq('id', prodId);
+                    }
+                }
+
+                await _supabase.from('outlet_vendas').update({
+                    status: 'Confirmado',
+                    forma_pagamento: formaPgto
+                }).eq('id', id);
+
+                mostrarMensagem('Venda validada com sucesso e estoque atualizado!');
+                fecharModalValidar();
+                await carregarBanco();
+                await carregarVendas();
+            } catch(err) {
+                mostrarMensagem('Erro ao aprovar venda: ' + err.message, 'error');
+            }
+        }
+
+        async function alterarStatusVenda(id, novoStatus) {
+            try {
+                await _supabase.from('outlet_vendas').update({ status: novoStatus }).eq('id', id);
+                mostrarMensagem(`Pedido alterado para ${novoStatus}.`);
+                await carregarVendas();
+            } catch(err) {
+                mostrarMensagem('Erro ao atualizar status: ' + err.message, 'error');
+            }
+        }
         
         function filtrarTabelaVendas() {
             const termo = document.getElementById('vendas-search').value.toLowerCase();
@@ -1051,6 +1324,15 @@
 
             renderizarVendas(filtradas);
         }
+
+        function filtrarCardVendas(tipo) {
+            if(tipo === 'pendente') {
+                document.getElementById('vendas-filtro-status').value = 'pendente';
+            } else {
+                document.getElementById('vendas-filtro-status').value = 'todos';
+            }
+            filtrarTabelaVendas();
+        }
         
         function renderizarGraficosVendas() {
             let pagamentosCount = {};
@@ -1065,12 +1347,8 @@
                 let val = Number(v.total || v.valor_total || 0);
                 let st = (v.status || '').toLowerCase();
                 
-                if(!st.includes('cancelado')) {
-                    faturamentoTotal += val;
-                }
-                if(st.includes('pendente')) {
-                    totalPendentes++;
-                }
+                if(!st.includes('cancelado')) { faturamentoTotal += val; }
+                if(st.includes('pendente')) { totalPendentes++; }
             });
 
             let ticketMedio = totalQtd > 0 ? faturamentoTotal / totalQtd : 0;
@@ -1092,7 +1370,18 @@
                         backgroundColor: ['#7C1826', '#C09A53', '#198754', '#0d6efd', '#ffc107', '#6c757d']
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } } }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } },
+                    onClick: (e, activeEls) => {
+                        if(activeEls.length > 0) {
+                            let labelPag = Object.keys(pagamentosCount)[activeEls[0].index];
+                            document.getElementById('vendas-search').value = labelPag;
+                            filtrarTabelaVendas();
+                        }
+                    }
+                }
             });
 
             let statusCount = { 'Confirmado': 0, 'Pendente': 0, 'Cancelado': 0 };
@@ -1117,7 +1406,19 @@
                         backgroundColor: ['#198754', '#ffc107', '#dc3545']
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }, plugins: { legend: { display: false } } }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }, 
+                    plugins: { legend: { display: false } },
+                    onClick: (e, activeEls) => {
+                        if(activeEls.length > 0) {
+                            let labelStatus = Object.keys(statusCount)[activeEls[0].index].toLowerCase();
+                            document.getElementById('vendas-filtro-status').value = labelStatus;
+                            filtrarTabelaVendas();
+                        }
+                    }
+                }
             });
         }
         
@@ -1126,14 +1427,10 @@
                 const { data, error } = await _supabase.from('outlet_custos_despesas').select('*').order('created_at', { ascending: false });
                 if(error) throw error;
                 todosCustos = data || [];
-                
                 renderizarGraficoCustosAno();
                 atualizarCardsResumoCustos();
                 aplicarFiltrosTabelaCustos();
-
-            } catch(err) {
-                console.error("Erro ao carregar custos:", err);
-            }
+            } catch(err) { console.error(err); }
         }
         
         function renderizarGraficoCustosAno() {
@@ -1166,40 +1463,17 @@
                 options: { 
                     responsive: true, 
                     maintainAspectRatio: false, 
-                    scales: { 
-                        y: { 
-                            beginAtZero: true, 
-                            ticks: { 
-                                callback: function(value) { return 'R$ ' + value.toLocaleString('pt-BR'); } 
-                            } 
-                        } 
-                    }, 
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return 'Total: R$ ' + Number(context.raw).toLocaleString('pt-BR', {minimumFractionDigits: 2});
-                                }
-                            }
-                        }
-                    } 
+                    scales: { y: { beginAtZero: true, ticks: { callback: function(value) { return 'R$ ' + value.toLocaleString('pt-BR'); } } } }, 
+                    plugins: { legend: { display: false } } 
                 }
             });
         }
         
         function atualizarCardsResumoCustos() {
             const mesFiltro = document.getElementById('filtro-mes-custos').value;
-            
-            let custosFiltradosMes = todosCustos;
-            if(mesFiltro) {
-                custosFiltradosMes = todosCustos.filter(item => item.mes_ano === mesFiltro);
-            }
+            let custosFiltradosMes = mesFiltro ? todosCustos.filter(item => item.mes_ano === mesFiltro) : todosCustos;
 
-            let totalGeral = 0;
-            let totalFornecedor = 0;
-            let totalOperacional = 0;
-
+            let totalGeral = 0, totalFornecedor = 0, totalOperacional = 0;
             custosFiltradosMes.forEach(item => {
                 let val = Number(item.valor || 0);
                 totalGeral += val;
@@ -1214,11 +1488,7 @@
         
         function aplicarFiltrosTabelaCustos() {
             const mesFiltro = document.getElementById('filtro-mes-custos').value;
-            let filtrados = todosCustos;
-
-            if(mesFiltro) {
-                filtrados = filtrados.filter(item => item.mes_ano === mesFiltro);
-            }
+            let filtrados = mesFiltro ? todosCustos.filter(item => item.mes_ano === mesFiltro) : todosCustos;
 
             if(filtroTipoCustoAtual !== 'todos') {
                 filtrados = filtrados.filter(item => item.tipo === filtroTipoCustoAtual);
@@ -1233,13 +1503,9 @@
 
             let html = '';
             let somaFiltro = 0;
-
             filtrados.forEach(item => {
                 somaFiltro += Number(item.valor || 0);
-                const badgeTipo = item.tipo === 'fornecedor' 
-                    ? '<span class="badge-status status-confirmado">Fornecedor</span>' 
-                    : '<span class="badge-status status-pendente">Operacional</span>';
-
+                const badgeTipo = item.tipo === 'fornecedor' ? '<span class="badge-status status-confirmado">Fornecedor</span>' : '<span class="badge-status status-pendente">Operacional</span>';
                 html += `
                     <tr>
                         <td>${badgeTipo}</td>
@@ -1251,10 +1517,39 @@
                     </tr>
                 `;
             });
-
             tbody.innerHTML = html;
             document.getElementById('total-custos-mes').textContent = `R$ ${somaFiltro.toFixed(2).replace('.',',')}`;
             atualizarCardsResumoCustos();
+        }
+
+        async function excluirCusto(id) {
+            if(!confirm('Deseja realmente excluir este custo?')) return;
+            try {
+                await _supabase.from('outlet_custos_despesas').delete().eq('id', id);
+                mostrarMensagem('Custo excluído com sucesso!');
+                carregarCustosDespesas();
+            } catch(err) { mostrarMensagem('Erro ao excluir: ' + err.message, 'error'); }
+        }
+
+        async function salvarCustoDespesa(e) {
+            e.preventDefault();
+            const payload = {
+                tipo: document.getElementById('custo-tipo').value,
+                nome_referencia: document.getElementById('custo-nome-manual').value,
+                mes_ano: document.getElementById('custo-mes').value,
+                valor: parseFloat(document.getElementById('custo-valor').value),
+                observacao: document.getElementById('custo-obs').value
+            };
+
+            try {
+                const { error } = await _supabase.from('outlet_custos_despesas').insert([payload]);
+                if(error) throw error;
+                mostrarMensagem('Custo registrado com sucesso!');
+                fecharModalCusto();
+                carregarCustosDespesas();
+            } catch(err) {
+                mostrarMensagem('Erro: Crie a tabela outlet_custos_despesas no SQL. Detalhes: ' + err.message, 'error');
+            }
         }
         
         function acionarCamera() { document.getElementById('input-camera').click(); }
@@ -1272,7 +1567,7 @@
         
         function filtrarTipoCusto(tipo, cardElement) {
             filtroTipoCustoAtual = tipo;
-            document.querySelectorAll('.summary-card').forEach(c => c.classList.remove('active-filter'));
+            document.querySelectorAll('#aba-fornecedores .summary-card').forEach(c => c.classList.remove('active-filter'));
             if(cardElement) cardElement.classList.add('active-filter');
             aplicarFiltrosTabelaCustos();
         }

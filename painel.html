@@ -210,8 +210,8 @@
             <!-- ABA 3: RELATÓRIO DE VENDAS -->
             <section id="aba-vendas" class="tab-section">
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #EEE; padding-bottom: 10px; margin-bottom: 15px;">
-                    <h2 style="color: var(--brand-burgundy);">Relatório de Vendas & Validações Web</h2>
-                    <button class="btn-primary" onclick="carregarVendas()"><i class="fa-solid fa-rotate"></i> Atualizar Lista</button>
+                    <h2 style="color: var(--brand-burgundy);">Relatório de Vendas, Web & Consignados</h2>
+                    <button class="btn-primary" onclick="carregarVendas(); carregarConsignacoes();"><i class="fa-solid fa-rotate"></i> Atualizar Lista</button>
                 </div>
                 <div class="summary-cards-grid">
                     <div class="summary-card" onclick="filtrarCardVendas('faturamento')"><h5>Faturamento Total</h5><div class="value" id="vendas-total-fat">R$ 0,00</div></div>
@@ -224,7 +224,7 @@
                     <div class="chart-card"><h4>Status dos Pedidos & Web</h4><canvas id="chartVendasStatus"></canvas></div>
                 </div>
                 <div style="display:flex; gap:15px; margin-bottom:15px; align-items:center; flex-wrap:wrap; background: #F8F9FA; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
-                    <div style="flex:1; min-width:220px;"><input type="text" id="vendas-search" class="filter-input" style="margin:0;" placeholder="🔍 Filtrar por cliente ou ID..." onkeyup="filtrarTabelaVendas()"></div>
+                    <div style="flex:1; min-width:220px;"><input type="text" id="vendas-search" class="filter-input" style="margin:0;" placeholder="🔍 Filtrar por cliente, ID ou pagamento..." onkeyup="filtrarTabelaVendas()"></div>
                     <div>
                         <select id="vendas-filtro-status" class="filter-input" style="margin:0; padding:10px;" onchange="filtrarTabelaVendas()">
                             <option value="todos">Todos os Status</option>
@@ -240,7 +240,7 @@
                 </table>
             </section>
 
-            <!-- ABA 4: GESTÃO DE CONSIGNADOS -->
+            <!-- ABA 4: GESTÃO DE CONSIGNAÇÕES -->
             <section id="aba-consignados" class="tab-section">
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #EEE; padding-bottom: 10px; margin-bottom: 15px;">
                     <h2 style="color: var(--brand-burgundy);">Controle de Mercadorias Consignadas</h2>
@@ -647,7 +647,7 @@
                 await carregarConsignacoes();
 
             } catch (err) {
-                mostrarMensagem('Erro: Crie a tabela outlet_consignacoes no SQL. Detalhes: ' + err.message, 'error');
+                mostrarMensagem('Erro ao salvar consignado. Certifique-se de executar no SQL Editor: ALTER TABLE outlet_consignacoes DISABLE ROW LEVEL SECURITY;', 'error');
             }
         }
 
@@ -789,7 +789,6 @@
                     totalEfetivoVendido += (vendida * itemOrig.preco);
                 }
 
-                // Retorna os devolvidos para o estoque
                 if(devolvido > 0) {
                     let prod = todosProdutos.find(p => String(p.id) === String(itemOrig.id));
                     if(prod) {
@@ -802,13 +801,11 @@
             let formaPgto = document.getElementById('acerto-forma-pagamento').value;
 
             try {
-                // 1. Atualizar Consignação como Concluída
                 await _supabase.from('outlet_consignacoes').update({
                     status: 'Concluído',
                     total_estimado: totalEfetivoVendido
                 }).eq('id', idConsig);
 
-                // 2. Registrar na Venda Oficial apenas o que foi efetivamente vendido
                 if(novosItensVendidos.length > 0) {
                     await _supabase.from('outlet_vendas').insert([{
                         cliente_nome: `Consignado - ${consigOriginal.responsavel}`,
@@ -820,7 +817,7 @@
                     }]);
                 }
 
-                mostrarMensagem('Acerto de consignado concluído com sucesso! Estoque atualizado.');
+                mostrarMensagem('Acerto de consignado concluído com sucesso!');
                 fecharModalAcerto();
 
                 await carregarBanco();
@@ -1204,12 +1201,27 @@
         
         function renderizarVendas(lista) {
             const tbody = document.getElementById('erp-vendas-body');
-            if(!lista || lista.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888; padding:20px;">Nenhuma venda registrada.</td></tr>';
+            
+            // Combinar vendas normais e consignações concluídas/pendentes para exibição unificada
+            let listaConsignasFormatadas = todasConsignacoes.map(c => ({
+                id: 'CONS-' + c.id,
+                cliente_nome: `Consignado: ${c.responsavel}`,
+                cliente_telefone: c.telefone || '',
+                itens: c.itens,
+                total: c.total_estimado,
+                forma_pagamento: c.status.toLowerCase() === 'concluído' ? 'Dinheiro/Acerto' : 'Consignado',
+                status: c.status.toLowerCase() === 'concluído' ? 'Confirmado' : 'Pendente (Consignado)',
+                created_at: c.created_at
+            }));
+
+            let listaGeralUnificada = [...lista, ...listaConsignasFormatadas];
+
+            if(!listaGeralUnificada || listaGeralUnificada.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888; padding:20px;">Nenhuma venda ou consignação registrada.</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = lista.map(v => {
+            tbody.innerHTML = listaGeralUnificada.map(v => {
                 let itensParsed = [];
                 try { itensParsed = typeof v.itens === 'string' ? JSON.parse(v.itens) : v.itens; } catch(e) { itensParsed = []; }
                 
@@ -1218,23 +1230,23 @@
                     : 'Detalhes indisponíveis';
 
                 let dataFmt = v.created_at ? new Date(v.created_at).toLocaleString('pt-BR') : '-';
-                let statusAtual = (v.status || 'Pendente de Validação').trim();
+                let statusAtual = (v.status || 'Pendente').trim();
                 let badgeClass = 'status-pendente';
                 
-                if(statusAtual.toLowerCase() === 'confirmado') badgeClass = 'status-confirmado';
-                if(statusAtual.toLowerCase() === 'cancelado') badgeClass = 'status-cancelado';
+                if(statusAtual.toLowerCase().includes('confirmado') || statusAtual.toLowerCase().includes('concluído')) badgeClass = 'status-confirmado';
+                if(statusAtual.toLowerCase().includes('cancelado')) badgeClass = 'status-cancelado';
 
-                let botoesAcao = statusAtual.toLowerCase().includes('pendente')
+                let botoesAcao = statusAtual.toLowerCase().includes('pendente') && !String(v.id).startsWith('CONS-')
                     ? `<button class="btn-success" onclick="abrirModalValidar('${v.id}')" style="margin-bottom:4px;">Aprovar</button><br>
                        <button class="btn-danger" onclick="alterarStatusVenda('${v.id}', 'Cancelado')">Cancelar</button>`
-                    : '<span style="font-size:0.75rem; color:#888;">Concluído</span>';
+                    : '<span style="font-size:0.75rem; color:#666;">Concluído</span>';
 
                 let totalVenda = Number(v.total || v.valor_total || 0).toFixed(2).replace('.', ',');
 
                 return `
                     <tr>
                         <td style="font-size:0.75rem; color:#666;">ID: ${v.id}<br>${dataFmt}</td>
-                        <td style="font-weight:600;">${v.cliente_nome || 'Cliente Web'}<br><span style="font-size:0.75rem; color:#666;">${v.cliente_telefone || ''}</span></td>
+                        <td style="font-weight:600;">${v.cliente_nome || 'Cliente'}<br><span style="font-size:0.75rem; color:#666;">${v.cliente_telefone || ''}</span></td>
                         <td style="font-size:0.8rem;">${itensStr}</td>
                         <td style="font-weight:bold; color:var(--brand-burgundy);">R$ ${totalVenda}</td>
                         <td>${v.forma_pagamento || '-'}</td>
@@ -1311,12 +1323,26 @@
             const termo = document.getElementById('vendas-search').value.toLowerCase();
             const statusFiltro = document.getElementById('vendas-filtro-status').value;
 
-            let filtradas = todasVendas.filter(v => {
+            let listaConsignasFormatadas = todasConsignacoes.map(c => ({
+                id: 'CONS-' + c.id,
+                cliente_nome: `Consignado: ${c.responsavel}`,
+                cliente_telefone: c.telefone || '',
+                itens: c.itens,
+                total: c.total_estimado,
+                forma_pagamento: c.status.toLowerCase() === 'concluído' ? 'Dinheiro/Acerto' : 'Consignado',
+                status: c.status.toLowerCase() === 'concluído' ? 'Confirmado' : 'Pendente (Consignado)',
+                created_at: c.created_at
+            }));
+
+            let listaGeralUnificada = [...todasVendas, ...listaConsignasFormatadas];
+
+            let filtradas = listaGeralUnificada.filter(v => {
                 let nomeCliente = (v.cliente_nome || '').toLowerCase();
                 let idVenda = String(v.id || '').toLowerCase();
                 let statusVenda = (v.status || 'Pendente').toLowerCase();
+                let pgtoVenda = (v.forma_pagamento || '').toLowerCase();
 
-                let matchTermo = nomeCliente.includes(termo) || idVenda.includes(termo);
+                let matchTermo = nomeCliente.includes(termo) || idVenda.includes(termo) || pgtoVenda.includes(termo);
                 let matchStatus = statusFiltro === 'todos' || statusVenda.includes(statusFiltro);
 
                 return matchTermo && matchStatus;
@@ -1331,24 +1357,35 @@
             } else {
                 document.getElementById('vendas-filtro-status').value = 'todos';
             }
+            document.getElementById('vendas-search.value') = '';
             filtrarTabelaVendas();
         }
         
         function renderizarGraficosVendas() {
             let pagamentosCount = {};
             let faturamentoTotal = 0;
-            let totalQtd = todasVendas.length;
+            let totalQtd = todasVendas.length + todasConsignacoes.length;
             let totalPendentes = 0;
 
             todasVendas.forEach(v => {
                 let pg = v.forma_pagamento || 'A definir';
                 pagamentosCount[pg] = (pagamentosCount[pg] || 0) + 1;
-                
                 let val = Number(v.total || v.valor_total || 0);
                 let st = (v.status || '').toLowerCase();
-                
                 if(!st.includes('cancelado')) { faturamentoTotal += val; }
                 if(st.includes('pendente')) { totalPendentes++; }
+            });
+
+            todasConsignacoes.forEach(c => {
+                let val = Number(c.total_estimado || 0);
+                let st = (c.status || '').toLowerCase();
+                if(st.includes('concluído') || st.includes('acertado')) {
+                    faturamentoTotal += val;
+                    pagamentosCount['Consignado Acertado'] = (pagamentosCount['Consignado Acertado'] || 0) + 1;
+                } else {
+                    totalPendentes++;
+                    pagamentosCount['Consignado Pendente'] = (pagamentosCount['Consignado Pendente'] || 0) + 1;
+                }
             });
 
             let ticketMedio = totalQtd > 0 ? faturamentoTotal / totalQtd : 0;
@@ -1367,7 +1404,7 @@
                     labels: Object.keys(pagamentosCount),
                     datasets: [{
                         data: Object.values(pagamentosCount),
-                        backgroundColor: ['#7C1826', '#C09A53', '#198754', '#0d6efd', '#ffc107', '#6c757d']
+                        backgroundColor: ['#7C1826', '#C09A53', '#198754', '#0d6efd', '#ffc107', '#6c757d', '#20c997']
                     }]
                 },
                 options: { 
@@ -1390,6 +1427,12 @@
                 if(st.includes('confirmado')) statusCount['Confirmado']++;
                 else if(st.includes('pendente')) statusCount['Pendente']++;
                 else if(st.includes('cancelado')) statusCount['Cancelado']++;
+                else statusCount['Pendente']++;
+            });
+
+            todasConsignacoes.forEach(c => {
+                let st = (c.status || 'Pendente').toLowerCase();
+                if(st.includes('concluído') || st.includes('acertado')) statusCount['Confirmado']++;
                 else statusCount['Pendente']++;
             });
 
@@ -1548,7 +1591,7 @@
                 fecharModalCusto();
                 carregarCustosDespesas();
             } catch(err) {
-                mostrarMensagem('Erro: Crie a tabela outlet_custos_despesas no SQL. Detalhes: ' + err.message, 'error');
+                mostrarMensagem('Erro ao salvar custo. Certifique-se de executar no SQL Editor: ALTER TABLE outlet_custos_despesas DISABLE ROW LEVEL SECURITY;', 'error');
             }
         }
         

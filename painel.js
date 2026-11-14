@@ -9,6 +9,8 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
         let filtroTipoCustoAtual = 'todos';
         let listaCaixa = [];
         let totalCaixa = 0;
+        let pedidosOnline = [];
+        let sessaoAdmin = null;
 
         let chartPagamentoInstance = null;
         let chartStatusInstance = null;
@@ -41,6 +43,7 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
             carregarVendas();
             carregarConsignacoes();
             carregarCustosDespesas();
+            inicializarAcessoAdmin();
         });
 
         function mostrarMensagem(texto, tipo = 'success') {
@@ -54,6 +57,241 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
             toast.innerHTML = `${icon} <span style="flex:1;">${texto}</span>`;
             container.appendChild(toast);
             setTimeout(() => toast.remove(), 3000);
+        }
+
+        async function inicializarAcessoAdmin() {
+            const params = new URLSearchParams(window.location.search);
+            if(params.get('melhor_envio') === 'connected') {
+                mostrarMensagem('Conta Melhor Envio conectada com sucesso.');
+                params.delete('melhor_envio');
+                const query = params.toString();
+                history.replaceState(null, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+            }
+
+            _supabase.auth.onAuthStateChange((_event, session) => {
+                sessaoAdmin = session;
+                atualizarControlesAdmin();
+                if(session) carregarPedidosOnline();
+                else {
+                    pedidosOnline = [];
+                    renderizarPedidosOnline();
+                }
+            });
+
+            const { data, error } = await _supabase.auth.getSession();
+            if(error) {
+                document.getElementById('online-orders-message').textContent = 'Erro ao verificar a sessão: ' + error.message;
+                return;
+            }
+            sessaoAdmin = data.session;
+            atualizarControlesAdmin();
+            if(sessaoAdmin) await carregarPedidosOnline();
+        }
+
+        function atualizarControlesAdmin() {
+            const logIn = document.getElementById('admin-login-form');
+            const controls = document.getElementById('admin-session-controls');
+            logIn.style.display = sessaoAdmin ? 'none' : 'flex';
+            controls.style.display = sessaoAdmin ? 'flex' : 'none';
+            document.getElementById('admin-session-label').textContent = sessaoAdmin
+                ? `Conectado como ${sessaoAdmin.user.email || 'administrador'}`
+                : '';
+        }
+
+        async function mensagemErroFuncao(data, error) {
+            if(data && data.error) return data.error;
+            if(error && error.context && typeof error.context.clone === 'function') {
+                try {
+                    const resposta = await error.context.clone().json();
+                    if(resposta && resposta.error) return resposta.error;
+                } catch(parseError) {
+                    console.warn('Não foi possível interpretar o erro retornado pela função:', parseError);
+                }
+            }
+            return error && error.message ? error.message : 'Erro inesperado na integração.';
+        }
+
+        async function entrarPainelAdmin(event) {
+            event.preventDefault();
+            const { data, error } = await _supabase.auth.signInWithPassword({
+                email: document.getElementById('admin-email').value.trim(),
+                password: document.getElementById('admin-password').value
+            });
+            if(error) {
+                mostrarMensagem('Não foi possível entrar: ' + error.message, 'error');
+                return;
+            }
+            sessaoAdmin = data.session;
+            atualizarControlesAdmin();
+            await carregarPedidosOnline();
+        }
+
+        async function sairPainelAdmin() {
+            const { error } = await _supabase.auth.signOut();
+            if(error) {
+                mostrarMensagem('Erro ao sair: ' + error.message, 'error');
+                return;
+            }
+            sessaoAdmin = null;
+            pedidosOnline = [];
+            atualizarControlesAdmin();
+            renderizarPedidosOnline();
+        }
+
+        async function carregarPedidosOnline() {
+            const mensagem = document.getElementById('online-orders-message');
+            const body = document.getElementById('online-orders-body');
+            if(!sessaoAdmin) {
+                mensagem.textContent = 'Entre com uma conta autorizada para consultar pedidos e etiquetas.';
+                return;
+            }
+
+            mensagem.textContent = 'Carregando pedidos online...';
+            const { data, error } = await _supabase
+                .from('outlet_pedidos_online')
+                .select('id,created_at,cliente_nome,cliente_telefone,endereco_entrega,itens,total,frete_escolhido,status,payment_status,shipping_status,label_url')
+                .order('created_at', { ascending: false });
+            if(error) {
+                pedidosOnline = [];
+                body.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#842029; padding:16px;">Não foi possível consultar os pedidos. Verifique a autorização administrativa e a migração do banco.</td></tr>';
+                mensagem.textContent = error.message;
+                return;
+            }
+            pedidosOnline = data || [];
+            mensagem.textContent = pedidosOnline.length
+                ? `${pedidosOnline.length} pedido(s) online.`
+                : 'Nenhum pedido online registrado.';
+            renderizarPedidosOnline();
+        }
+
+        function renderizarPedidosOnline() {
+            const body = document.getElementById('online-orders-body');
+            if(!body) return;
+            if(!sessaoAdmin) {
+                body.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888; padding:16px;">Aguardando acesso administrativo.</td></tr>';
+                return;
+            }
+            if(pedidosOnline.length === 0) {
+                body.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888; padding:16px;">Nenhum pedido online registrado.</td></tr>';
+                return;
+            }
+
+            body.replaceChildren();
+            pedidosOnline.forEach(pedido => {
+                const row = document.createElement('tr');
+                const date = pedido.created_at ? new Date(pedido.created_at).toLocaleString('pt-BR') : '-';
+                const items = Array.isArray(pedido.itens) ? pedido.itens : [];
+                const address = pedido.endereco_entrega || {};
+                const addressText = [
+                    address.address,
+                    address.number,
+                    address.district,
+                    address.city,
+                    address.state_abbr,
+                    address.postal_code
+                ].filter(Boolean).join(', ');
+                const shipping = pedido.frete_escolhido || {};
+                const status = String(pedido.status || 'pending_payment');
+                const shippingStatus = String(pedido.shipping_status || 'not_started');
+                const statusLabels = {
+                    pending_payment: `Aguardando pagamento (${pedido.payment_status || 'pendente'})`,
+                    paid: 'Pago',
+                    paid_inventory_conflict: 'Pago — revisar estoque',
+                    payment_rejected: 'Pagamento recusado',
+                    payment_cancelled: 'Pagamento cancelado',
+                    checkout_error: 'Erro ao iniciar pagamento'
+                };
+                const shippingLabels = {
+                    not_started: 'Etiqueta não criada',
+                    in_cart: 'Frete no carrinho Melhor Envio',
+                    purchased: 'Frete pago; etiqueta pendente',
+                    generated: 'Etiqueta gerada'
+                };
+                const appendCell = (text) => {
+                    const cell = document.createElement('td');
+                    cell.textContent = text;
+                    row.appendChild(cell);
+                    return cell;
+                };
+
+                const dateCell = appendCell(`${date}\n${pedido.id}`);
+                dateCell.style.whiteSpace = 'pre-line';
+                const customerCell = appendCell(`${pedido.cliente_nome || 'Cliente'} · ${pedido.cliente_telefone || ''}\n${addressText}`);
+                customerCell.style.whiteSpace = 'pre-line';
+                appendCell(items.map(item => `${item.quantity || 1}x ${item.nome || 'Produto'}`).join('; '));
+                appendCell(formatarValor(Number(pedido.total || 0)));
+                appendCell(`${statusLabels[status] || status} · Mercado Pago`);
+                appendCell(`${shipping.company_name || shipping.company || 'Frete'} — ${shippingLabels[shippingStatus] || shippingStatus}`);
+
+                const actionCell = document.createElement('td');
+                if(pedido.label_url) {
+                    const link = document.createElement('a');
+                    link.href = pedido.label_url;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.textContent = 'Abrir etiqueta';
+                    actionCell.appendChild(link);
+                } else if(status === 'paid' && !['paid_inventory_conflict'].includes(status)) {
+                    const invoice = document.createElement('input');
+                    invoice.type = 'text';
+                    invoice.inputMode = 'numeric';
+                    invoice.maxLength = 44;
+                    invoice.placeholder = 'Chave NF-e (44 dígitos)';
+                    invoice.setAttribute('aria-label', `Chave NF-e do pedido ${pedido.id}`);
+                    invoice.style.cssText = 'width:190px; padding:7px; border:1px solid #CCC; border-radius:5px; margin-right:5px;';
+                    actionCell.appendChild(invoice);
+
+                    const button = document.createElement('button');
+                    button.className = 'btn-primary';
+                    button.type = 'button';
+                    button.textContent = shippingStatus === 'not_started' ? 'Comprar e gerar etiqueta' : 'Continuar etiqueta';
+                    button.addEventListener('click', () => gerarEtiquetaPedido(pedido.id, invoice.value, button));
+                    actionCell.appendChild(button);
+                } else {
+                    actionCell.textContent = 'Disponível após pagamento';
+                }
+                row.appendChild(actionCell);
+                body.appendChild(row);
+            });
+        }
+
+        function formatarValor(valor) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+        }
+
+        async function conectarMelhorEnvio() {
+            const { data, error } = await _supabase.functions.invoke('melhor-envio-oauth', {
+                body: { action: 'authorize' }
+            });
+            if(error || !data || !data.authorize_url) {
+                mostrarMensagem(error ? await mensagemErroFuncao(data, error) : 'Não foi possível iniciar a conexão do Melhor Envio.', 'error');
+                return;
+            }
+            window.location.assign(data.authorize_url);
+        }
+
+        async function gerarEtiquetaPedido(orderId, invoiceKey, button) {
+            const pedido = pedidosOnline.find(item => String(item.id) === String(orderId));
+            if(!pedido) return;
+            const mensagem = pedido.shipping_status === 'not_started'
+                ? 'O Melhor Envio usará saldo da carteira para comprar este frete e gerar a etiqueta. Deseja continuar?'
+                : 'Deseja continuar o fluxo da etiqueta pendente?';
+            if(!window.confirm(mensagem)) return;
+
+            button.disabled = true;
+            button.textContent = 'Processando...';
+            const { data, error } = await _supabase.functions.invoke('create-shipping-label', {
+                body: { order_id: orderId, invoice_key: invoiceKey }
+            });
+            if(error || !data || data.error) {
+                mostrarMensagem(error ? await mensagemErroFuncao(data, error) : (data && data.error ? data.error : 'Falha ao criar a etiqueta.'), 'error');
+                button.disabled = false;
+                button.textContent = pedido.shipping_status === 'not_started' ? 'Comprar e gerar etiqueta' : 'Continuar etiqueta';
+                await carregarPedidosOnline();
+                return;
+            }
+            mostrarMensagem('Etiqueta gerada com sucesso.');
+            await carregarPedidosOnline();
         }
 
         function trocarAba(aba, btn) {

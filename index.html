@@ -73,6 +73,13 @@
         .modal-content { background: #FFF; padding: 25px; border-radius: 12px; width: 100%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
         
         .cart-item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #EEE; font-size: 0.9rem; }
+        .checkout-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .checkout-grid .full-width { grid-column: 1 / -1; }
+        .checkout-field label { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; color: #555; }
+        .checkout-field input, .checkout-field select { width: 100%; padding: 10px; border: 1px solid #CCC; border-radius: 6px; font-size: 0.9rem; }
+        .shipping-rate { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-top: 8px; cursor: pointer; }
+        .shipping-rate:has(input:checked) { border-color: var(--brand-burgundy); background: #fff8f8; }
+        @media (max-width: 520px) { .checkout-grid { grid-template-columns: 1fr; } .checkout-grid .full-width { grid-column: auto; } }
         
         .contato-box { background: #FFF; padding: 40px; border-radius: 12px; text-align: center; border: 1px solid var(--border-color); }
         .contato-box h3 { color: var(--brand-burgundy); font-size: 1.8rem; margin-bottom: 15px; }
@@ -136,6 +143,7 @@
     </div>
 
     <div class="container">
+        <div id="payment-return-message" role="status" style="display:none; margin-bottom:15px; padding:14px; background:#FFF3CD; color:#664D03; border:1px solid #FFECB5; border-radius:8px;"></div>
         <section id="sec-inicio" class="view-section active">
             <div class="marketing-section">
                 <h3>Artigos que inspiram a Fé</h3>
@@ -189,6 +197,50 @@
                     <i class="fa-brands fa-whatsapp"></i> Finalizar no WhatsApp
                 </button>
             </div>
+            <button onclick="iniciarCheckoutMercadoPago()" style="width:100%; margin-top:10px; background:#009EE3; color:#FFF; border:none; padding:12px; border-radius:8px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+                <i class="fa-solid fa-lock"></i> Pagar com Mercado Pago
+            </button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-checkout">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #EEE; padding-bottom:10px; margin-bottom:15px;">
+                <h3 style="color:var(--brand-burgundy);"><i class="fa-solid fa-truck-fast"></i> Entrega e pagamento</h3>
+                <button type="button" onclick="fecharCheckout()" style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:#999;" aria-label="Fechar">&times;</button>
+            </div>
+            <form id="form-checkout" onsubmit="finalizarCompraMercadoPago(event)">
+                <div class="checkout-grid">
+                    <div class="checkout-field full-width"><label for="checkout-nome">Nome completo *</label><input id="checkout-nome" autocomplete="name" maxlength="120" required></div>
+                    <div class="checkout-field"><label for="checkout-email">E-mail *</label><input id="checkout-email" type="email" autocomplete="email" maxlength="254" required></div>
+                    <div class="checkout-field"><label for="checkout-telefone">Telefone com DDD *</label><input id="checkout-telefone" type="tel" autocomplete="tel" inputmode="tel" required></div>
+                    <div class="checkout-field full-width"><label for="checkout-cpf">CPF *</label><input id="checkout-cpf" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="000.000.000-00" required></div>
+                    <div class="checkout-field"><label for="checkout-cep">CEP *</label><input id="checkout-cep" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" oninput="invalidarFreteCheckout()" required></div>
+                    <div class="checkout-field"><label for="checkout-estado">UF *</label><input id="checkout-estado" maxlength="2" autocomplete="address-level1" required></div>
+                    <div class="checkout-field full-width"><label for="checkout-endereco">Rua / Avenida *</label><input id="checkout-endereco" autocomplete="address-line1" maxlength="150" required></div>
+                    <div class="checkout-field"><label for="checkout-numero">Número *</label><input id="checkout-numero" maxlength="20" required></div>
+                    <div class="checkout-field"><label for="checkout-complemento">Complemento</label><input id="checkout-complemento" maxlength="100"></div>
+                    <div class="checkout-field"><label for="checkout-bairro">Bairro *</label><input id="checkout-bairro" autocomplete="address-level3" maxlength="100" required></div>
+                    <div class="checkout-field"><label for="checkout-cidade">Cidade *</label><input id="checkout-cidade" autocomplete="address-level2" maxlength="100" required></div>
+                </div>
+                <div style="margin-top:14px;">
+                    <button type="button" id="checkout-calcular-frete" onclick="calcularFreteCheckout()" style="width:100%; background:#60121D; color:#FFF; border:none; padding:11px; border-radius:7px; font-weight:700; cursor:pointer;">
+                        Calcular opções de frete
+                    </button>
+                    <div id="checkout-opcoes-frete" style="margin-top:8px;" aria-live="polite"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; border-top:2px solid #EEE; padding-top:14px; margin:15px 0; font-weight:700;">
+                    <span id="checkout-resumo">Subtotal: R$ 0,00</span>
+                    <span id="checkout-total" style="color:var(--brand-burgundy);">Total: R$ 0,00</span>
+                </div>
+                <p style="font-size:0.75rem; color:#666; margin-bottom:12px;">Seus dados de contato e entrega serão usados para processar o pedido e calcular/realizar o envio. O pagamento é processado com segurança pelo Mercado Pago.</p>
+                <div style="display:flex; gap:10px;">
+                    <button type="button" onclick="fecharCheckout()" style="flex:1; background:#EEE; border:none; padding:12px; border-radius:8px; font-weight:600; cursor:pointer;">Voltar</button>
+                    <button type="submit" id="checkout-pagar" style="flex:1; background:#009EE3; color:#FFF; border:none; padding:12px; border-radius:8px; font-weight:700; cursor:pointer;">
+                        Ir para o Mercado Pago
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -244,6 +296,17 @@
         function formatarDataBR(iso) { return iso ? iso.split('-').reverse().join('/') : '-'; }
 
         document.addEventListener("DOMContentLoaded", async () => {
+            const paymentResult = new URLSearchParams(window.location.search).get('payment');
+            const returnMessage = document.getElementById('payment-return-message');
+            const paymentMessages = {
+                success: 'Retorno do Mercado Pago recebido. A confirmação definitiva do pedido será atualizada após a validação segura da notificação de pagamento.',
+                pending: 'Seu pagamento está em análise ou aguardando confirmação. Não é necessário refazer o pedido.',
+                failure: 'O pagamento não foi concluído. Você pode tentar novamente pelo carrinho.'
+            };
+            if(paymentMessages[paymentResult]) {
+                returnMessage.textContent = paymentMessages[paymentResult];
+                returnMessage.style.display = 'block';
+            }
             await carregarProdutos();
         });
 
@@ -391,6 +454,167 @@
             carrinho = carrinho.filter(i => i.id != id);
             atualizarContadorCarrinho();
             abrirCarrinho();
+        }
+
+        let fretesCheckout = [];
+        let freteCheckoutSelecionado = null;
+        const formatarMoeda = valor => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+
+        async function mensagemErroFuncao(data, error) {
+            if(data && data.error) return data.error;
+            if(error && error.context && typeof error.context.clone === 'function') {
+                try {
+                    const resposta = await error.context.clone().json();
+                    if(resposta && resposta.error) return resposta.error;
+                } catch(parseError) {
+                    console.warn('Não foi possível interpretar o erro retornado pela função:', parseError);
+                }
+            }
+            return error && error.message ? error.message : 'Erro inesperado na integração.';
+        }
+
+        function iniciarCheckoutMercadoPago() {
+            if(carrinho.length === 0) {
+                alert('O seu carrinho está vazio.');
+                return;
+            }
+            fretesCheckout = [];
+            freteCheckoutSelecionado = null;
+            document.getElementById('form-checkout').reset();
+            document.getElementById('checkout-opcoes-frete').innerHTML = '';
+            const subtotal = carrinho.reduce((acc, item) => acc + item.preco * item.qtd, 0);
+            document.getElementById('checkout-resumo').textContent = `Subtotal: ${formatarMoeda(subtotal)}`;
+            document.getElementById('checkout-total').textContent = `Total: ${formatarMoeda(subtotal)}`;
+            fecharCarrinho();
+            document.getElementById('modal-checkout').classList.add('active');
+        }
+
+        function fecharCheckout() {
+            document.getElementById('modal-checkout').classList.remove('active');
+        }
+
+        function atualizarTotalCheckout() {
+            const subtotal = carrinho.reduce((acc, item) => acc + item.preco * item.qtd, 0);
+            const frete = freteCheckoutSelecionado ? Number(freteCheckoutSelecionado.price) : 0;
+            document.getElementById('checkout-resumo').textContent = `Subtotal: ${formatarMoeda(subtotal)}${freteCheckoutSelecionado ? ` + frete: ${formatarMoeda(frete)}` : ''}`;
+            document.getElementById('checkout-total').textContent = `Total: ${formatarMoeda(subtotal + frete)}`;
+        }
+
+        function invalidarFreteCheckout() {
+            if(fretesCheckout.length === 0) return;
+            fretesCheckout = [];
+            freteCheckoutSelecionado = null;
+            document.getElementById('checkout-opcoes-frete').textContent = 'O CEP foi alterado. Calcule o frete novamente.';
+            atualizarTotalCheckout();
+        }
+
+        async function calcularFreteCheckout() {
+            const cep = document.getElementById('checkout-cep').value.replace(/\D/g, '');
+            const lista = document.getElementById('checkout-opcoes-frete');
+            const botao = document.getElementById('checkout-calcular-frete');
+            if(cep.length !== 8) {
+                alert('Informe um CEP válido com 8 dígitos.');
+                return;
+            }
+
+            botao.disabled = true;
+            botao.textContent = 'Consultando fretes...';
+            lista.textContent = '';
+            fretesCheckout = [];
+            freteCheckoutSelecionado = null;
+            atualizarTotalCheckout();
+            try {
+                const { data, error } = await _supabase.functions.invoke('quote-shipping', {
+                    body: {
+                        postal_code: cep,
+                        items: carrinho.map(item => ({ id: item.id, quantity: item.qtd }))
+                    }
+                });
+                if(error) throw new Error(await mensagemErroFuncao(data, error));
+                if(data && data.error) throw new Error(data.error);
+                if(document.getElementById('checkout-cep').value.replace(/\D/g, '') !== cep) {
+                    lista.textContent = 'O CEP foi alterado. Calcule o frete novamente.';
+                    return;
+                }
+                fretesCheckout = data && Array.isArray(data.rates) ? data.rates : [];
+                if(fretesCheckout.length === 0) {
+                    lista.textContent = 'Nenhum serviço de entrega disponível para este CEP.';
+                    return;
+                }
+
+                fretesCheckout.forEach((frete, indice) => {
+                    const label = document.createElement('label');
+                    label.className = 'shipping-rate';
+                    const input = document.createElement('input');
+                    input.type = 'radio';
+                    input.name = 'checkout-frete';
+                    input.value = String(frete.service_id);
+                    input.required = true;
+                    input.addEventListener('change', () => {
+                        freteCheckoutSelecionado = fretesCheckout[indice];
+                        atualizarTotalCheckout();
+                    });
+                    const details = document.createElement('span');
+                    const prazo = Number(frete.delivery_days) > 0 ? ` · até ${Number(frete.delivery_days)} dias úteis` : '';
+                    details.textContent = `${frete.company_name} — ${frete.service_name}: ${formatarMoeda(Number(frete.price))}${prazo}`;
+                    label.append(input, details);
+                    lista.appendChild(label);
+                });
+            } catch(error) {
+                console.error('Erro ao calcular frete:', error);
+                lista.textContent = error.message || 'Não foi possível calcular o frete. Tente novamente.';
+            } finally {
+                botao.disabled = false;
+                botao.textContent = 'Calcular opções de frete';
+            }
+        }
+
+        async function finalizarCompraMercadoPago(event) {
+            event.preventDefault();
+            const form = document.getElementById('form-checkout');
+            if(!form.reportValidity()) return;
+            if(!freteCheckoutSelecionado) {
+                alert('Calcule e selecione uma opção de frete antes de continuar.');
+                return;
+            }
+
+            const botao = document.getElementById('checkout-pagar');
+            botao.disabled = true;
+            botao.textContent = 'Preparando pagamento...';
+            const customer = {
+                name: document.getElementById('checkout-nome').value.trim(),
+                email: document.getElementById('checkout-email').value.trim(),
+                phone: document.getElementById('checkout-telefone').value,
+                document: document.getElementById('checkout-cpf').value,
+                postal_code: document.getElementById('checkout-cep').value,
+                address: document.getElementById('checkout-endereco').value.trim(),
+                number: document.getElementById('checkout-numero').value.trim(),
+                complement: document.getElementById('checkout-complemento').value.trim(),
+                district: document.getElementById('checkout-bairro').value.trim(),
+                city: document.getElementById('checkout-cidade').value.trim(),
+                state: document.getElementById('checkout-estado').value.trim()
+            };
+
+            try {
+                const { data, error } = await _supabase.functions.invoke('create-payment', {
+                    body: {
+                        items: carrinho.map(item => ({ id: item.id, quantity: item.qtd })),
+                        item_subtotal: carrinho.reduce((acc, item) => acc + item.preco * item.qtd, 0),
+                        customer,
+                        shipping_service_id: freteCheckoutSelecionado.service_id,
+                        shipping_price: freteCheckoutSelecionado.price
+                    }
+                });
+                if(error) throw new Error(await mensagemErroFuncao(data, error));
+                if(data && data.error) throw new Error(data.error);
+                if(!data || !data.checkout_url) throw new Error('O Mercado Pago não retornou o link de pagamento.');
+                window.location.assign(data.checkout_url);
+            } catch(error) {
+                console.error('Erro ao iniciar pagamento:', error);
+                alert(error.message || 'Não foi possível iniciar o pagamento. Tente novamente.');
+                botao.disabled = false;
+                botao.textContent = 'Ir para o Mercado Pago';
+            }
         }
 
         async function finalizarCompraWhatsApp() {

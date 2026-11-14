@@ -63,6 +63,7 @@
         .product-info { padding: 15px; display: flex; flex-direction: column; flex-grow: 1; justify-content: space-between; }
         .badge-out { position: absolute; top: 10px; right: 10px; background: var(--danger-red); color: #FFF; font-size: 0.7rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; z-index: 2; }
         
+        .badge-promo { position: absolute; top: 10px; left: 10px; background: var(--brand-gold); color: #000; font-size: 0.7rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; z-index: 2; }
         .btn-add-cart { background: var(--brand-burgundy); color: #FFF; border: none; width: 100%; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
         .btn-add-cart:hover { background: #60121D; }
 
@@ -76,6 +77,19 @@
         .contato-box { background: #FFF; padding: 40px; border-radius: 12px; text-align: center; border: 1px solid var(--border-color); }
         .contato-box h3 { color: var(--brand-burgundy); font-size: 1.8rem; margin-bottom: 15px; }
         .contato-box p { font-size: 1.1rem; color: #555; margin-bottom: 10px; }
+
+        /* Banner de campanha */
+        .hero { position: relative; max-width: 1200px; width: calc(100% - 30px); margin: 20px auto 0; border-radius: 12px; overflow: hidden; aspect-ratio: 1832 / 858; background: #4a0e16; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .hero-slide { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity 0.8s ease, visibility 0.8s; cursor: pointer; }
+        .hero-slide.active { opacity: 1; visibility: visible; }
+        .hero-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .hero-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.35); color: #FFF; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.1rem; cursor: pointer; z-index: 3; }
+        .hero-nav:hover, .hero-nav:focus-visible { background: rgba(124,24,38,0.9); outline: 2px solid var(--brand-gold); }
+        .hero-prev { left: 12px; } .hero-next { right: 12px; }
+        .hero-dots { position: absolute; bottom: 10px; left: 0; right: 0; display: flex; justify-content: center; gap: 8px; z-index: 3; }
+        .hero-dots button { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--brand-gold); background: transparent; cursor: pointer; padding: 0; }
+        .hero-dots button.active { background: var(--brand-gold); }
+        @media (max-width: 600px) { .hero-nav { width: 32px; height: 32px; } }
 
         footer { background: #1A1A1A; color: #FFF; text-align: center; padding: 20px; font-size: 0.85rem; margin-top: 40px; }
         footer span { color: var(--brand-gold); font-weight: bold; }
@@ -107,6 +121,14 @@
         <button class="cat-btn" onclick="filtrarPorCategoria('infantil', this)">Infantil</button>
         <button class="cat-btn" onclick="filtrarPorCategoria('santuário', this)">Santuário</button>
         <button class="cat-btn" style="color: var(--brand-gold);" onclick="filtrarVitrine('estoque')"><i class="fa-solid fa-tag"></i> Apenas em Estoque</button>
+    </div>
+
+    <div class="hero" id="hero" aria-roledescription="carrossel" aria-label="Campanhas">
+        <div class="hero-slide active" onclick="rolarParaVitrine()"><img src="imagem1.webp" alt="Espaço Outlet Católico: o verdadeiro Natal é o nascimento do Amor. Presentes especiais para celebrar a fé, a família e o verdadeiro sentido do Natal." width="1832" height="858"></div>
+        <div class="hero-slide" onclick="rolarParaVitrine()"><img src="imagem2.webp" alt="Neste Natal, presenteie com fé! Presépios, imagens e presentes que levam o amor de Deus para cada lar." width="1832" height="858" loading="lazy"></div>
+        <button class="hero-nav hero-prev" onclick="moverBanner(-1)" aria-label="Banner anterior"><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="hero-nav hero-next" onclick="moverBanner(1)" aria-label="Próximo banner"><i class="fa-solid fa-chevron-right"></i></button>
+        <div class="hero-dots" id="hero-dots"></div>
     </div>
 
     <div class="sub-banner">
@@ -180,9 +202,46 @@
         const SUPABASE_KEY = "sb_publishable_-30z4xAhwJPYmy1bfSEjCw_loKUe8uL";
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+
+        /* ======= BANNER DE CAMPANHA ======= */
+        let bannerAtual = 0, bannerTimer = null;
+        function mostrarBanner(i) {
+            const slides = document.querySelectorAll('.hero-slide');
+            bannerAtual = (i + slides.length) % slides.length;
+            slides.forEach((sl, n) => sl.classList.toggle('active', n === bannerAtual));
+            document.querySelectorAll('#hero-dots button').forEach((d, n) => d.classList.toggle('active', n === bannerAtual));
+        }
+        function moverBanner(passo) { mostrarBanner(bannerAtual + passo); iniciarBanner(); }
+        function iniciarBanner() {
+            clearInterval(bannerTimer);
+            if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            bannerTimer = setInterval(() => mostrarBanner(bannerAtual + 1), 6000);
+        }
+        function rolarParaVitrine() { document.querySelector('.store-filters').scrollIntoView({ behavior: 'smooth' }); }
+        document.addEventListener('DOMContentLoaded', () => {
+            const dots = document.getElementById('hero-dots');
+            document.querySelectorAll('.hero-slide').forEach((_, n) => {
+                const b = document.createElement('button');
+                b.setAttribute('aria-label', 'Ir para o banner ' + (n + 1));
+                b.onclick = () => { mostrarBanner(n); iniciarBanner(); };
+                dots.appendChild(b);
+            });
+            mostrarBanner(0);
+            iniciarBanner();
+            const hero = document.getElementById('hero');
+            hero.addEventListener('mouseenter', () => clearInterval(bannerTimer));
+            hero.addEventListener('mouseleave', iniciarBanner);
+        });
+
         let todosProdutos = [];
         let carrinho = [];
         let categoriaAtual = '';
+
+        /* ======= PROMOÇÕES: preço vigente (volta ao original sozinho após a data final) ======= */
+        function hojeISO() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+        function emPromocao(p) { return p.preco_promocional != null && Number(p.preco_promocional) > 0 && !!p.promocao_fim && p.promocao_fim >= hojeISO(); }
+        function precoVigente(p) { return emPromocao(p) ? Number(p.preco_promocional) : Number(p.preco || 0); }
+        function formatarDataBR(iso) { return iso ? iso.split('-').reverse().join('/') : '-'; }
 
         document.addEventListener("DOMContentLoaded", async () => {
             await carregarProdutos();
@@ -222,8 +281,8 @@
             if(categoriaAtual !== '') filtrados = filtrados.filter(p => (p.nome || '').toLowerCase().includes(categoriaAtual));
 
             if (ordem === 'estoque') filtrados = filtrados.filter(p => (p.estoque || 0) > 0);
-            else if (ordem === 'menor-preco') filtrados.sort((a, b) => (a.preco || 0) - (b.preco || 0));
-            else if (ordem === 'maior-preco') filtrados.sort((a, b) => (b.preco || 0) - (a.preco || 0));
+            else if (ordem === 'menor-preco') filtrados.sort((a, b) => precoVigente(a) - precoVigente(b));
+            else if (ordem === 'maior-preco') filtrados.sort((a, b) => precoVigente(b) - precoVigente(a));
 
             document.getElementById('resultado-count').textContent = `Exibindo ${filtrados.length} produtos`;
             const grid = document.getElementById('product-grid');
@@ -235,12 +294,14 @@
 
             grid.innerHTML = filtrados.map(p => {
                 let semEstoque = (p.estoque || 0) <= 0;
-                let precoStr = Number(p.preco || 0).toFixed(2).replace('.', ',');
+                let precoStr = precoVigente(p).toFixed(2).replace('.', ',');
+                let promo = emPromocao(p);
                 let imagem = p.imagem_url ? p.imagem_url : 'https://via.placeholder.com/400x400.png?text=Foto+Indisponível';
                 
                 return `
                     <div class="product-card">
                         ${semEstoque ? '<span class="badge-out">ESGOTADO</span>' : ''}
+                        ${promo ? '<span class="badge-promo">PROMOÇÃO</span>' : ''}
                         <img src="${imagem}" alt="${p.nome}" class="product-img">
                         <div class="product-info">
                             <div>
@@ -248,7 +309,9 @@
                                 <h4 style="font-size:0.95rem; margin-bottom:10px;">${p.nome || 'Produto'}</h4>
                             </div>
                             <div>
+                                ${promo ? `<p style="font-size:0.8rem; color:#999; text-decoration:line-through;">R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')}</p>` : ''}
                                 <p style="font-weight:700; color:var(--brand-burgundy); font-size:1.3rem; margin-bottom: 4px;">R$ ${precoStr}</p>
+                                ${promo ? `<p style="font-size:0.72rem; color:var(--brand-text-brown); font-weight:600; margin-bottom:4px;">Promoção até ${formatarDataBR(p.promocao_fim)}</p>` : ''}
                                 <p style="font-size:0.75rem; color:${semEstoque ? 'var(--danger-red)' : 'var(--success-green)'}; font-weight:600;">
                                     ${semEstoque ? 'Sem Estoque' : `Disponível: ${p.estoque || 0} un`}
                                 </p>
@@ -276,7 +339,7 @@
                     return;
                 }
             } else {
-                carrinho.push({ id: produto.id, nome: produto.nome, preco: Number(produto.preco), qtd: 1 });
+                carrinho.push({ id: produto.id, nome: produto.nome, preco: precoVigente(produto), qtd: 1 });
             }
 
             atualizarContadorCarrinho();

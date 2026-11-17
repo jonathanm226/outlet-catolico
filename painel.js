@@ -66,12 +66,20 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
                 params.delete('melhor_envio');
                 const query = params.toString();
                 history.replaceState(null, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+            } else if(params.get('melhor_envio') === 'error') {
+                mostrarMensagem('Não foi possível conectar o Melhor Envio. Tente novamente e confira o aplicativo OAuth.', 'error');
+                params.delete('melhor_envio');
+                const query = params.toString();
+                history.replaceState(null, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
             }
 
             _supabase.auth.onAuthStateChange((_event, session) => {
                 sessaoAdmin = session;
                 atualizarControlesAdmin();
-                if(session) carregarPedidosOnline();
+                if(session) {
+                    carregarPedidosOnline();
+                    if(document.getElementById('aba-integracoes').classList.contains('active')) carregarConfiguracoesIntegracao();
+                }
                 else {
                     pedidosOnline = [];
                     renderizarPedidosOnline();
@@ -85,7 +93,10 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
             }
             sessaoAdmin = data.session;
             atualizarControlesAdmin();
-            if(sessaoAdmin) await carregarPedidosOnline();
+            if(sessaoAdmin) {
+                await carregarPedidosOnline();
+                if(document.getElementById('aba-integracoes').classList.contains('active')) await carregarConfiguracoesIntegracao();
+            }
         }
 
         function atualizarControlesAdmin() {
@@ -96,6 +107,15 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
             document.getElementById('admin-session-label').textContent = sessaoAdmin
                 ? `Conectado como ${sessaoAdmin.user.email || 'administrador'}`
                 : '';
+            const loginRequired = document.getElementById('integracoes-login-required');
+            const configPanel = document.getElementById('integracoes-config-panel');
+            const loginButton = document.getElementById('integracoes-login-button');
+            if(!sessaoAdmin) {
+                loginRequired.style.display = 'block';
+                configPanel.style.display = 'none';
+                loginButton.style.display = 'inline-block';
+                document.getElementById('integracoes-access-message').textContent = 'Entre com uma conta autorizada para gerenciar as integrações.';
+            }
         }
 
         async function mensagemErroFuncao(data, error) {
@@ -124,6 +144,7 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
             sessaoAdmin = data.session;
             atualizarControlesAdmin();
             await carregarPedidosOnline();
+            if(document.getElementById('aba-integracoes').classList.contains('active')) await carregarConfiguracoesIntegracao();
         }
 
         async function sairPainelAdmin() {
@@ -164,6 +185,136 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
             renderizarPedidosOnline();
         }
 
+        function exibirStatusIntegracoes(data) {
+            const mercadoPago = data.mercadopago || {};
+            const melhorEnvio = data.melhor_envio || {};
+            const estado = (configurado) => configurado ? 'configurado' : 'não configurado';
+            document.getElementById('integracoes-status').textContent =
+                `Callback OAuth: ${data.callback_url || 'indisponível'}. Após alterar Client ID, Client Secret ou ambiente, conecte novamente a conta Melhor Envio.`;
+            document.getElementById('mercadopago-config-status').textContent =
+                `Access Token: ${estado(mercadoPago.access_token_configured)} · Segredo do Webhook: ${estado(mercadoPago.webhook_secret_configured)}. Os valores nunca são exibidos.`;
+            document.getElementById('melhor-envio-config-status').textContent =
+                `Client ID: ${estado(melhorEnvio.client_id_configured)} · Client Secret: ${estado(melhorEnvio.client_secret_configured)} · Conta OAuth: ${melhorEnvio.connected ? 'conectada' : 'não conectada'}.`;
+
+            document.getElementById('mp-environment').value = mercadoPago.environment || '';
+            document.getElementById('mp-site-url').value = mercadoPago.site_url || '';
+            document.getElementById('me-environment').value = melhorEnvio.environment || '';
+            document.getElementById('me-origin-postal-code').value = melhorEnvio.origin_postal_code || '';
+            document.getElementById('me-support-email').value = melhorEnvio.support_email || '';
+            document.getElementById('me-callback-url').value = data.callback_url || '';
+
+            const sender = melhorEnvio.sender || {};
+            const senderFields = {
+                'me-sender-name': 'name',
+                'me-sender-email': 'email',
+                'me-sender-phone': 'phone',
+                'me-sender-document': 'document',
+                'me-sender-company-document': 'company_document',
+                'me-sender-state-register': 'state_register',
+                'me-sender-address': 'address',
+                'me-sender-number': 'number',
+                'me-sender-complement': 'complement',
+                'me-sender-district': 'district',
+                'me-sender-city': 'city',
+                'me-sender-postal-code': 'postal_code',
+                'me-sender-state': 'state_abbr'
+            };
+            Object.keys(senderFields).forEach(id => {
+                document.getElementById(id).value = sender[senderFields[id]] || '';
+            });
+        }
+
+        async function carregarConfiguracoesIntegracao() {
+            const loginRequired = document.getElementById('integracoes-login-required');
+            const configPanel = document.getElementById('integracoes-config-panel');
+            const loginButton = document.getElementById('integracoes-login-button');
+            if(!sessaoAdmin) {
+                loginRequired.style.display = 'block';
+                configPanel.style.display = 'none';
+                return;
+            }
+
+            loginRequired.style.display = 'block';
+            configPanel.style.display = 'none';
+            loginButton.style.display = 'none';
+            document.getElementById('integracoes-access-message').textContent = 'Verificando autorização administrativa...';
+            const { data, error } = await _supabase.functions.invoke('manage-integrations', {
+                body: { action: 'status' }
+            });
+            if(error || !data || data.error) {
+                const message = error
+                    ? await mensagemErroFuncao(data, error)
+                    : (data && data.error ? data.error : 'Não foi possível carregar as configurações.');
+                document.getElementById('integracoes-access-message').textContent = message;
+                loginButton.style.display = 'none';
+                return;
+            }
+            exibirStatusIntegracoes(data);
+            loginRequired.style.display = 'none';
+            configPanel.style.display = 'block';
+        }
+
+        async function salvarConfiguracaoIntegracao(event, provider) {
+            event.preventDefault();
+            if(!sessaoAdmin) {
+                mostrarMensagem('Entre com uma conta administrativa para salvar as integrações.', 'error');
+                return;
+            }
+
+            const form = event.currentTarget;
+            const button = form.querySelector('button[type="submit"]');
+            const values = provider === 'mercadopago'
+                ? {
+                    access_token: document.getElementById('mp-access-token').value,
+                    webhook_secret: document.getElementById('mp-webhook-secret').value,
+                    environment: document.getElementById('mp-environment').value,
+                    site_url: document.getElementById('mp-site-url').value
+                }
+                : {
+                    client_id: document.getElementById('me-client-id').value,
+                    client_secret: document.getElementById('me-client-secret').value,
+                    environment: document.getElementById('me-environment').value,
+                    origin_postal_code: document.getElementById('me-origin-postal-code').value,
+                    support_email: document.getElementById('me-support-email').value,
+                    sender: {
+                        name: document.getElementById('me-sender-name').value,
+                        email: document.getElementById('me-sender-email').value,
+                        phone: document.getElementById('me-sender-phone').value,
+                        document: document.getElementById('me-sender-document').value,
+                        company_document: document.getElementById('me-sender-company-document').value,
+                        state_register: document.getElementById('me-sender-state-register').value,
+                        address: document.getElementById('me-sender-address').value,
+                        number: document.getElementById('me-sender-number').value,
+                        complement: document.getElementById('me-sender-complement').value,
+                        district: document.getElementById('me-sender-district').value,
+                        city: document.getElementById('me-sender-city').value,
+                        postal_code: document.getElementById('me-sender-postal-code').value,
+                        state_abbr: document.getElementById('me-sender-state').value
+                    }
+                };
+
+            button.disabled = true;
+            button.textContent = 'Salvando...';
+            const { data, error } = await _supabase.functions.invoke('manage-integrations', {
+                body: { action: 'save', provider, values }
+            });
+            if(error || !data || data.error) {
+                mostrarMensagem(error ? await mensagemErroFuncao(data, error) : (data && data.error ? data.error : 'Não foi possível salvar as configurações.'), 'error');
+                button.disabled = false;
+                button.textContent = provider === 'mercadopago' ? 'Salvar Mercado Pago' : 'Salvar Melhor Envio';
+                return;
+            }
+
+            document.getElementById('mp-access-token').value = '';
+            document.getElementById('mp-webhook-secret').value = '';
+            document.getElementById('me-client-id').value = '';
+            document.getElementById('me-client-secret').value = '';
+            exibirStatusIntegracoes(data);
+            mostrarMensagem('Configurações salvas com segurança.');
+            button.disabled = false;
+            button.textContent = provider === 'mercadopago' ? 'Salvar Mercado Pago' : 'Salvar Melhor Envio';
+        }
+
         function renderizarPedidosOnline() {
             const body = document.getElementById('online-orders-body');
             if(!body) return;
@@ -199,13 +350,18 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
                     paid_inventory_conflict: 'Pago — revisar estoque',
                     payment_rejected: 'Pagamento recusado',
                     payment_cancelled: 'Pagamento cancelado',
+                    payment_refunded: 'Pagamento estornado/contestado',
                     checkout_error: 'Erro ao iniciar pagamento'
                 };
                 const shippingLabels = {
                     not_started: 'Etiqueta não criada',
+                    creating_cart: 'Criando frete; verificar Melhor Envio',
                     in_cart: 'Frete no carrinho Melhor Envio',
+                    checkout_pending: 'Compra do frete sem confirmação; verificar Melhor Envio',
                     purchased: 'Frete pago; etiqueta pendente',
-                    generated: 'Etiqueta gerada'
+                    generating_label: 'Gerando etiqueta; verificar Melhor Envio',
+                    generated: 'Etiqueta gerada',
+                    printing_label: 'Impressão sem confirmação; verificar Melhor Envio'
                 };
                 const appendCell = (text) => {
                     const cell = document.createElement('td');
@@ -301,6 +457,7 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
             if(btn) btn.classList.add('active');
 
             if(aba === 'vendas') setTimeout(renderizarGraficosVendas, 100);
+            else if(aba === 'integracoes') carregarConfiguracoesIntegracao();
             else if(aba === 'estoque') setTimeout(renderizarGraficosEstoque, 100);
             else if(aba === 'consignados') carregarConsignacoes();
             else if(aba === 'fornecedores') setTimeout(renderizarGraficoCustosAno, 100);
@@ -510,42 +667,52 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
 
             let linhas = document.querySelectorAll('#tbody-acerto-itens tr');
             let novosItensVendidos = [];
+            let itensDevolvidos = [];
             let totalEfetivoVendido = 0;
-
-            linhas.forEach((tr, index) => {
-                let itemOrig = itensParsed[index];
-                let vendida = Number(tr.querySelector('.input-qtd-vendida').value);
-                let devolvido = itemOrig.qtd - vendida;
-
-                if(vendida > 0) {
-                    novosItensVendidos.push({
-                        id: itemOrig.id,
-                        nome: itemOrig.nome,
-                        preco: itemOrig.preco,
-                        qtd: vendida
-                    });
-                    totalEfetivoVendido += (vendida * itemOrig.preco);
-                }
-
-                if(devolvido > 0) {
-                    let prod = todosProdutos.find(p => String(p.id) === String(itemOrig.id));
-                    if(prod) {
-                        let novoEstoque = Number(prod.estoque || 0) + devolvido;
-                        _supabase.from('outlet_produtos').update({ estoque: novoEstoque }).eq('id', itemOrig.id);
-                    }
-                }
-            });
-
             let formaPgto = document.getElementById('acerto-forma-pagamento').value;
 
             try {
-                await _supabase.from('outlet_consignacoes').update({
+                linhas.forEach((tr, index) => {
+                    let itemOrig = itensParsed[index];
+                    let vendida = Number(tr.querySelector('.input-qtd-vendida').value);
+                    let devolvido = itemOrig.qtd - vendida;
+
+                    if(vendida > 0) {
+                        novosItensVendidos.push({
+                            id: itemOrig.id,
+                            nome: itemOrig.nome,
+                            preco: itemOrig.preco,
+                            qtd: vendida
+                        });
+                        totalEfetivoVendido += (vendida * itemOrig.preco);
+                    }
+
+                    if(devolvido > 0) {
+                        let prod = todosProdutos.find(p => String(p.id) === String(itemOrig.id));
+                        if(!prod) throw new Error(`O produto ${itemOrig.nome || itemOrig.id} não foi encontrado no estoque.`);
+                        itensDevolvidos.push({
+                            id: itemOrig.id,
+                            estoque: Number(prod.estoque || 0) + devolvido
+                        });
+                    }
+                });
+
+                for(const item of itensDevolvidos) {
+                    const { error } = await _supabase
+                        .from('outlet_produtos')
+                        .update({ estoque: item.estoque })
+                        .eq('id', item.id);
+                    if(error) throw error;
+                }
+
+                const { error: errorConsignacao } = await _supabase.from('outlet_consignacoes').update({
                     status: 'Concluído',
                     total_estimado: totalEfetivoVendido
                 }).eq('id', idConsig);
+                if(errorConsignacao) throw errorConsignacao;
 
                 if(novosItensVendidos.length > 0) {
-                    await _supabase.from('outlet_vendas').insert([{
+                    const { error: errorVenda } = await _supabase.from('outlet_vendas').insert([{
                         cliente_nome: `Consignado - ${consigOriginal.responsavel}`,
                         cliente_telefone: consigOriginal.telefone || '',
                         itens: JSON.stringify(novosItensVendidos),
@@ -553,6 +720,7 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
                         status: 'Confirmado',
                         forma_pagamento: formaPgto
                     }]);
+                    if(errorVenda) throw errorVenda;
                 }
 
                 mostrarMensagem('Acerto de consignado concluído com sucesso!');
@@ -747,17 +915,20 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
         function renderizarPDV(lista) {
             const tbody = document.getElementById('pdv-table-body');
             if(!tbody) return;
-            tbody.innerHTML = lista.map(p => {
+            tbody.innerHTML = lista.map((p, index) => {
                 const semEstoque = (p.estoque || 0) <= 0;
-                const nomeSeguro = (p.nome || '').replace(/'/g, "'");
                 return `<tr>
                     <td style="font-size:0.8rem; color:#666;">${p.sku || '-'}</td>
                     <td style="font-weight:600; font-size: 0.85rem;">${p.nome}</td>
                     <td>${p.estoque || 0} un</td>
                     <td style="color:var(--brand-burgundy); font-weight:bold;">${emPromocao(p) ? `<span style="text-decoration:line-through; color:#999; font-weight:400; font-size:0.75rem;">R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')}</span><br>` : ''}R$ ${precoVigente(p).toFixed(2).replace('.', ',')}</td>
-                    <td><button class="btn-secundary" style="padding: 4px 8px; font-size:0.75rem;" onclick="addCaixa('${p.id}', '${nomeSeguro}', ${precoVigente(p)})" ${semEstoque ? 'disabled style="opacity:0.5;"' : ''}>+ Add</button></td>
+                    <td><button type="button" class="btn-secundary" data-pdv-index="${index}" style="padding: 4px 8px; font-size:0.75rem;" ${semEstoque ? 'disabled style="opacity:0.5;"' : ''}>+ Add</button></td>
                 </tr>`;
             }).join('');
+            tbody.querySelectorAll('[data-pdv-index]').forEach(button => {
+                const produto = lista[Number(button.dataset.pdvIndex)];
+                if(produto) button.addEventListener('click', () => addCaixa(produto.id));
+            });
         }
 
         function filtrarPDV() {
@@ -766,10 +937,14 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
             renderizarPDV(filtrados);
         }
 
-        function addCaixa(id, nome, preco) {
-            let index = listaCaixa.findIndex(it => it.id === id);
+        function addCaixa(id) {
+            const produto = todosProdutos.find(p => String(p.id) === String(id));
+            if(!produto) return;
+
+            const preco = precoVigente(produto);
+            let index = listaCaixa.findIndex(it => String(it.id) === String(produto.id));
             if(index > -1) { listaCaixa[index].qtd++; } 
-            else { listaCaixa.push({ id: id, nome: nome, preco: Number(preco), qtd: 1 }); }
+            else { listaCaixa.push({ id: produto.id, nome: produto.nome, preco, qtd: 1 }); }
             totalCaixa += Number(preco);
             atualizarVisorCaixa();
         }
@@ -1111,7 +1286,7 @@ const SUPABASE_URL = "https://doecoosuqibzdsyadsyg.supabase.co";
             } else {
                 document.getElementById('vendas-filtro-status').value = 'todos';
             }
-            document.getElementById('vendas-search.value') = '';
+            document.getElementById('vendas-search').value = '';
             filtrarTabelaVendas();
         }
         

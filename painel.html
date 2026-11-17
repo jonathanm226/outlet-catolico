@@ -69,6 +69,10 @@
         .summary-card h5 { font-size: 0.8rem; color: #666; margin-bottom: 5px; text-transform: uppercase; font-weight: 600; }
         .summary-card .value { font-size: 1.35rem; font-weight: bold; color: var(--brand-burgundy); }
 
+        .integration-card { border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; margin: 18px 0; background: #FFF; }
+        .integration-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+        .integration-note { color: #666; font-size: 0.82rem; line-height: 1.5; margin: 8px 0 14px; }
+
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center; padding: 20px; }
         .modal-overlay.active { display: flex; }
         .modal-content { background: #FFF; padding: 25px; border-radius: 12px; width: 100%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
@@ -103,7 +107,8 @@
             <ul>
                 <li class="menu-item active" onclick="trocarAba('pdv', this)"><i class="fa-solid fa-cash-register"></i> PDV (Caixa)</li>
                 <li class="menu-item" onclick="trocarAba('estoque', this)"><i class="fa-solid fa-boxes-stacked"></i> Gestão de Estoque</li>
-                <li class="menu-item" onclick="trocarAba('vendas', this)"><i class="fa-solid fa-chart-line"></i> Relatório de Vendas</li>
+                <li id="menu-vendas" class="menu-item" onclick="trocarAba('vendas', this)"><i class="fa-solid fa-chart-line"></i> Relatório de Vendas</li>
+                <li class="menu-item" onclick="trocarAba('integracoes', this)"><i class="fa-solid fa-plug"></i> Integrações</li>
                 <li class="menu-item" onclick="trocarAba('consignados', this)"><i class="fa-solid fa-handshake"></i> Gestão de Consignados</li>
                 <li class="menu-item" onclick="trocarAba('fornecedores', this)"><i class="fa-solid fa-truck-field"></i> Gestão de Fornecedores & Custos</li>
                 <li class="menu-item" onclick="trocarAba('promocoes', this)"><i class="fa-solid fa-tags"></i> Promoções</li>
@@ -276,7 +281,99 @@
                 </div>
             </section>
 
-            <!-- ABA 4: GESTÃO DE CONSIGNAÇÕES -->
+            <!-- ABA 4: CONFIGURAÇÃO DE INTEGRAÇÕES -->
+            <section id="aba-integracoes" class="tab-section">
+                <h2 style="color:var(--brand-burgundy); border-bottom:2px solid #EEE; padding-bottom:10px;">Configuração de Integrações</h2>
+                <p class="integration-note">Cadastre ou troque as credenciais das contas conectadas à loja. Os valores salvos ficam cifrados no servidor e nunca são exibidos novamente. Deixe os campos de credenciais em branco para manter os valores atuais.</p>
+                <div id="integracoes-login-required" class="integration-card">
+                    <p id="integracoes-access-message">Entre com uma conta autorizada para gerenciar as integrações.</p>
+                    <button id="integracoes-login-button" class="btn-primary" type="button" style="margin-top:12px;" onclick="document.getElementById('menu-vendas').click()">Ir para o login administrativo</button>
+                </div>
+                <div id="integracoes-config-panel" style="display:none;">
+                    <div id="integracoes-status" role="status" class="integration-note"></div>
+                    <form id="form-mercadopago-config" class="integration-card" onsubmit="salvarConfiguracaoIntegracao(event, 'mercadopago')">
+                        <h3 style="color:var(--brand-burgundy);">Mercado Pago</h3>
+                        <p id="mercadopago-config-status" class="integration-note">Status não carregado.</p>
+                        <div class="integration-grid">
+                            <div class="form-group">
+                                <label for="mp-access-token">Access Token</label>
+                                <input id="mp-access-token" type="password" autocomplete="new-password" placeholder="Preencha para cadastrar ou substituir">
+                            </div>
+                            <div class="form-group">
+                                <label for="mp-webhook-secret">Segredo do Webhook</label>
+                                <input id="mp-webhook-secret" type="password" autocomplete="new-password" placeholder="Preencha para cadastrar ou substituir">
+                            </div>
+                            <div class="form-group">
+                                <label for="mp-environment">Ambiente</label>
+                                <select id="mp-environment" required>
+                                    <option value="">Selecione</option>
+                                    <option value="test">Teste</option>
+                                    <option value="production">Produção</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="mp-site-url">URL pública da loja</label>
+                                <input id="mp-site-url" type="url" autocomplete="url" placeholder="https://www.sualoja.com.br" required>
+                            </div>
+                        </div>
+                        <button class="btn-primary" type="submit">Salvar Mercado Pago</button>
+                    </form>
+
+                    <form id="form-melhor-envio-config" class="integration-card" onsubmit="salvarConfiguracaoIntegracao(event, 'melhor_envio')">
+                        <h3 style="color:var(--brand-burgundy);">Melhor Envio</h3>
+                        <p id="melhor-envio-config-status" class="integration-note">Status não carregado.</p>
+                        <div class="integration-grid">
+                            <div class="form-group">
+                                <label for="me-client-id">Client ID</label>
+                                <input id="me-client-id" type="password" autocomplete="new-password" placeholder="Preencha para cadastrar ou substituir">
+                            </div>
+                            <div class="form-group">
+                                <label for="me-client-secret">Client Secret</label>
+                                <input id="me-client-secret" type="password" autocomplete="new-password" placeholder="Preencha para cadastrar ou substituir">
+                            </div>
+                            <div class="form-group">
+                                <label for="me-environment">Ambiente</label>
+                                <select id="me-environment" required>
+                                    <option value="">Selecione</option>
+                                    <option value="sandbox">Sandbox (testes)</option>
+                                    <option value="production">Produção</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="me-origin-postal-code">CEP de origem</label>
+                                <input id="me-origin-postal-code" inputmode="numeric" autocomplete="postal-code" maxlength="9" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="me-support-email">E-mail de suporte</label>
+                                <input id="me-support-email" type="email" autocomplete="email" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="me-callback-url">Callback OAuth (cadastre no Melhor Envio)</label>
+                                <input id="me-callback-url" type="url" readonly>
+                            </div>
+                        </div>
+                        <h4 style="margin:12px 0; color:#555;">Dados do remetente para etiquetas</h4>
+                        <div class="integration-grid">
+                            <div class="form-group"><label for="me-sender-name">Nome / Razão social</label><input id="me-sender-name" required></div>
+                            <div class="form-group"><label for="me-sender-email">E-mail</label><input id="me-sender-email" type="email" required></div>
+                            <div class="form-group"><label for="me-sender-phone">Telefone com DDD</label><input id="me-sender-phone" type="tel" required></div>
+                            <div class="form-group"><label for="me-sender-document">CPF (pessoa física)</label><input id="me-sender-document" inputmode="numeric"></div>
+                            <div class="form-group"><label for="me-sender-company-document">CNPJ (pessoa jurídica)</label><input id="me-sender-company-document" inputmode="numeric"></div>
+                            <div class="form-group"><label for="me-sender-state-register">Inscrição estadual / Isento</label><input id="me-sender-state-register"></div>
+                            <div class="form-group"><label for="me-sender-address">Endereço</label><input id="me-sender-address" required></div>
+                            <div class="form-group"><label for="me-sender-number">Número</label><input id="me-sender-number" required></div>
+                            <div class="form-group"><label for="me-sender-complement">Complemento</label><input id="me-sender-complement"></div>
+                            <div class="form-group"><label for="me-sender-district">Bairro</label><input id="me-sender-district" required></div>
+                            <div class="form-group"><label for="me-sender-city">Cidade</label><input id="me-sender-city" required></div>
+                            <div class="form-group"><label for="me-sender-postal-code">CEP</label><input id="me-sender-postal-code" inputmode="numeric" autocomplete="postal-code" maxlength="9" required></div>
+                            <div class="form-group"><label for="me-sender-state">UF</label><input id="me-sender-state" maxlength="2" required></div>
+                        </div>
+                        <button class="btn-primary" type="submit">Salvar Melhor Envio</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- ABA 5: GESTÃO DE CONSIGNAÇÕES -->
             <section id="aba-consignados" class="tab-section">
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #EEE; padding-bottom: 10px; margin-bottom: 15px;">
                     <h2 style="color: var(--brand-burgundy);">Controle de Mercadorias Consignadas</h2>
